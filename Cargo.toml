@@ -7,16 +7,13 @@ edition = "2021"
 
 [[bin]]
 name = "locker"
-path = "src/locker.rs"
+path = "src/main.rs"
 
 [dependencies]
 rand =    { git = "https://github.com/rust-lang-nursery/rand" }
 openssl = { version = "0.10", features = ["vendored"] }
 serde = "1.0"
 serde_json = "0.9"
-
-[workspace]
-members=["crypto"]
 
 [profile.dev]
 opt-level = 0
