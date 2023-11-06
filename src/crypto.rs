@@ -1,7 +1,8 @@
 use openssl::
 {
     rsa::{Rsa, Padding},
-    pkey::{Private},
+    pkey::Private,
+    sha::Sha256
 };
 
 use crate::util::read_file_utf8;
@@ -26,6 +27,9 @@ pub fn build_rsa(path: &str, pass: &str) -> Rsa<Private>
 
 }
 
+/*
+    Encrypt to rsa's public key
+*/
 pub fn encrypt(rsa: Rsa<Private>, data: &[u8]) -> Vec<u8>
 {
     let mut buf = vec![0; rsa.size() as usize];
@@ -33,9 +37,21 @@ pub fn encrypt(rsa: Rsa<Private>, data: &[u8]) -> Vec<u8>
     buf
 }
 
+/*
+    Decrypt data previously encrypted t rsa's public key
+        Padding will leave null bytes, they can be trimmed 
+        downstream, e.g. after parsing to a String: string.trim_matches(char::from(0))
+*/
 pub fn decrypt(rsa: Rsa<Private>, data: &[u8]) -> Vec<u8> 
 {
     let mut buf = vec![0; rsa.size() as usize];
     let _len = rsa.private_decrypt(data, &mut buf, Padding::PKCS1).unwrap();
     buf
+}
+
+pub fn hash(v: &str) -> [u8; 32]
+{
+    let mut sha = Sha256::new();
+    sha.update(v.as_bytes());
+    sha.finish()
 }
