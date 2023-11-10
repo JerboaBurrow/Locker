@@ -1,50 +1,43 @@
 use openssl::
 {
     rsa::{Rsa, Padding},
-    pkey::{PKey}
+    pkey::{PKey,Private},
 };
 
 use std::io;
 
-use crate::util::read_file;
+use crate::util::{read_file, self};
 
-pub fn encrypt(path: &str, data: String) -> Vec<u8>
+pub fn build_rsa(path: &str, pass: &str) -> Rsa<Private>
 {
     let pem = read_file(path);
-    
-    println!("Passphrase for PEM file {}",path);
-    let mut input = String::new();
-    
-    match io::stdin().read_line(&mut input)
+
+    let rsa_input = Rsa::private_key_from_pem_passphrase
+    (
+        pem.as_bytes(),
+        pass.as_bytes()
+    );
+
+    match rsa_input
     {
-        Err(why) => panic!("reading input: {}", why),
+        Err(why) => panic!("when obtaining private key from pem file, {}, {}", path, why),
         Ok(_) => ()
     }
 
-    if input.len() > 1
-    {
-        input.remove(input.len()-1);
+    return rsa_input.unwrap();
 
-        let rsa_input = Rsa::private_key_from_pem_passphrase
-        (
-            pem.as_bytes(),
-            input.as_bytes()
-        );
-    
-        match rsa_input
-        {
-            Err(why) => panic!("when obtaining private key from pem file, {}, {}", path, why),
-            Ok(_) => ()
-        }
-    
-        let rsa = rsa_input.unwrap();
-    
-        let mut buf = vec![0; rsa.size() as usize];
-        let len = rsa.public_encrypt(data.as_bytes(), &mut buf, Padding::PKCS1).unwrap();
-        return buf
-    }
-    else 
-    {
-        panic!("passphrase is empty");
-    }
+}
+
+pub fn encrypt(rsa: Rsa<Private>, data: &[u8]) -> Vec<u8>
+{
+    let mut buf = vec![0; rsa.size() as usize];
+    let _len = rsa.public_encrypt(data, &mut buf, Padding::PKCS1).unwrap();
+    return buf
+}
+
+pub fn decrypt(rsa: Rsa<Private>, data: &[u8]) -> Vec<u8> 
+{
+    let mut buf = vec![0; rsa.size() as usize];
+    let _len = rsa.private_decrypt(data, &mut buf, Padding::PKCS1).unwrap();
+    buf
 }

@@ -1,7 +1,15 @@
 use core::panic;
 use std::io;
 
-use locker::{crypto, util};
+use locker::
+{
+    crypto::
+    {
+        encrypt,
+        build_rsa
+    }, 
+    util
+};
 
 fn main()
 {
@@ -33,7 +41,27 @@ fn main()
         Ok(_) => ()
     }
 
-    let result = crypto::encrypt(pem.as_str(), input);
+    println!("Passphrase for PEM file {}",pem);
+    let mut pass = String::new();
+    
+    match io::stdin().read_line(&mut pass)
+    {
+        Err(why) => panic!("reading input: {}", why),
+        Ok(_) => ()
+    }
+
+    if pass.len() > 1
+    {
+        pass.remove(pass.len()-1);
+    }
+    else 
+    {
+        panic!("passphrase is empty");
+    }
+
+    let rsa = build_rsa(pem.as_str(), pass.as_str());
+
+    let result = encrypt(rsa, input.as_bytes());
 
     util::write_file("out", &result);
 }
