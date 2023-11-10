@@ -2,7 +2,7 @@ use std::path::Path;
 use std::fs::File;
 use std::io::prelude::*;
 
-pub fn read_file(path: &str) -> String
+pub fn read_file_utf8(path: &str) -> String
 {
     let path = Path::new(path);
     let display = path.display();
@@ -26,4 +26,13 @@ pub fn write_file(path: &str, data: &[u8])
 {
     let mut file = File::create(path).unwrap();
     file.write_all(data).unwrap();
+}
+
+pub fn read_file_raw(path: &str) -> Vec<u8>
+{
+    match std::fs::read(path)
+    {
+        Err(why) => panic!("Couldn't read {}: {}", path, why),
+        Ok(data) => data
+    }
 }
