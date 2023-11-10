@@ -6,6 +6,7 @@ use locker::
     crypto::
     {
         encrypt,
+        decrypt,
         build_rsa
     }, 
     util
@@ -32,14 +33,25 @@ fn main()
         "private.pem".to_string()
     };
 
-    println!("Enter some data to encrypt:");
-    let mut input = String::new();
-    
-    match io::stdin().read_line(&mut input)
+    let mut encrypted_file: String = String::new();
+
+    let decrypting = if args.iter().any(|x| x == "-d")
     {
-        Err(why) => panic!("reading input: {}", why),
-        Ok(_) => ()
+        let i = args.iter().position(|x| x == "-d").unwrap();
+        if i+1 < args.len()
+        {
+            encrypted_file = args[i+1].parse::<String>().unwrap();
+            true
+        }
+        else
+        {
+            panic!("No file given to decrypt");
+        }
     }
+    else 
+    {
+        false
+    };
 
     println!("Passphrase for PEM file {}",pem);
     let mut pass = String::new();
@@ -61,7 +73,30 @@ fn main()
 
     let rsa = build_rsa(pem.as_str(), pass.as_str());
 
-    let result = encrypt(rsa, input.as_bytes());
-
-    util::write_file("out", &result);
+    if decrypting
+    {
+        let data = util::read_file_raw(encrypted_file.as_str());
+        let result = decrypt(rsa, &data);
+        match std::str::from_utf8(&result)
+        {
+            Err(_e) => {println!("Not UTF8, dumping bytes\n"); for c in result { print!("{} ", c)}},
+            Ok(str) => println!("Decypted data:  \n{}", str)
+        }
+        
+    }
+    else 
+    {
+        println!("Enter some data to encrypt:");
+        let mut input = String::new();
+        
+        match io::stdin().read_line(&mut input)
+        {
+            Err(why) => panic!("reading input: {}", why),
+            Ok(_) => ()
+        }
+    
+        let result = encrypt(rsa, input.as_bytes());
+    
+        util::write_file("out", &result);
+    }
 }
