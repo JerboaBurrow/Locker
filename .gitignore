@@ -1,2 +1,4 @@
 *.lock
 target/
+out
+tmp
