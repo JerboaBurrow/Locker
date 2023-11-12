@@ -25,7 +25,10 @@
 use crate::
 {
     crypto::{hash, encrypt, decrypt},
-    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning}
+    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning}, 
+    Version, 
+    program_version,
+    compatible
 };
 
 use openssl::sha::Sha256;
@@ -54,6 +57,7 @@ pub struct Entry
 #[derive(Serialize, Deserialize)]
 pub struct Lkr
 {
+    version: (String, String, String, String),
     check_hash: String,
     entries: Vec<Entry>
 }
@@ -143,6 +147,33 @@ impl Locker
         let lkr: Lkr = serde_json::from_str(&data).unwrap();
         let lkr_entries = lkr.entries;
 
+        let file_version = Version
+        {
+            major: lkr.version.0,
+            minor: lkr.version.1,
+            patch: lkr.version.2,
+            modifier: lkr.version.3
+        };
+
+        if file_version != program_version()
+        {
+            let compat_info = match compatible(program_version(), file_version.clone())
+            {
+                true => "[compatible] ",
+                false => "[incompatible] "
+            };
+
+            let msg = format!
+            (
+                "{}version mismatch: program {} lkr file: {}",
+                compat_info,
+                program_version(),
+                file_version
+            );
+
+            warning(&msg);
+        }
+
         let mut check_hash: Sha256 = Sha256::new();
 
         for entry in lkr_entries
@@ -182,7 +213,16 @@ impl Locker
             check_hash.update(value_string.as_bytes());
         }
 
-        match serde_json::to_string_pretty(&Lkr {check_hash: dump_bytes(&check_hash.finish()), entries: data})
+        let v = program_version();
+
+        let lkr = Lkr
+        {
+            version: (v.major, v.minor, v.patch, v.modifier), 
+            check_hash: dump_bytes(&check_hash.finish()), 
+            entries: data
+        };
+
+        match serde_json::to_string_pretty(&lkr)
         {
             Ok(se) => 
             {
