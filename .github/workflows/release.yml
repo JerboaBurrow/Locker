@@ -1,0 +1,76 @@
+name: release
+
+on:
+  push:
+    branches: [ "main" ]
+    tags:     'v*'
+    paths-ignore:
+      - 'doc/**'
+      - '.github/**'
+  workflow_dispatch:
+
+
+jobs:
+  build_test_and_bundle:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: setup rust stable
+      run: curl https://sh.rustup.rs -sSf | sh -s -- -y
+
+    - name: unit tests
+      run: cargo test --all --release
+
+    - name: bundle
+      run: |
+          mkdir Locker
+          mkdir Locker/${{ matrix.os }}
+          cp LICENSE Locker/
+          cp target/release/locker Locker/${{ matrix.os }}/
+
+    - name: upload bundle
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.os }}
+        path: Locker
+
+  release:
+    needs: [build_test_and_bundle]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-22.04
+    
+    steps:
+
+      - name: get linux build
+        uses: actions/download-artifact@v3
+        with:
+          name: ubuntu-latest
+
+      - name: get windows build
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-latest
+
+      - name: get macos build
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-latest
+
+      - name: pack
+        run: |
+              zip -r Locker.zip Locker
+
+  #     https://github.com/softprops/action-gh-release
+      - name: release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          prerelease: true
+          name: "release-${{ github.ref_name }}"
+          tag_name: ${{ github.ref }}
+          files: Locker.zip
