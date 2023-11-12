@@ -1,102 +1,160 @@
-use core::panic;
-use std::io;
+use std::process::exit;
+use std::path::Path;
 
 use locker::
 {
-    crypto::
-    {
-        encrypt,
-        decrypt,
-        build_rsa
-    }, 
-    util
+    crypto::build_rsa,
+    file::Locker
 };
+
+use openssl::
+{
+    rsa::Rsa,
+    pkey::Private
+};
+
+use rpassword;
+
+const HELP_STRING: &str = r#"
+Locker usage:
+
+    locker [file.lkr] [entry] {data} {-k private_key.pem}
+    
+  []'d arguments are required, {}'d arguments are optional.
+
+  Specifying {data} will run locker in store mode, ommiting
+    it will run locker in retrieve mode.
+
+  Positional arguments:
+  
+    file.lkr must be specified, pointing to the locker file
+    entry    must be specified, the entry to store or retrieve
+    data     optional, if specified locker will attempt to 
+               store data with the key given by entry
+  
+  Options:
+  
+    -k pem   path to (encrypted) RSA private key in pem 
+               format
+Notes:
+
+  In storage mode locker will backup the locker file's prior
+    state. E.g. file.lkr will be backed-up as file.lkr.bk.
+
+  When in storage mode a key collision will prompt for
+    whether to quit, or overwrite."#;
 
 fn main()
 {
-    let args: Vec<String> = std::env::args().collect();
+    let mut args: Vec<String> = std::env::args().collect();
 
-    let pem = if args.iter().any(|x| x == "-k")
+    if args.iter().any(|x| x == "-h")
+    {
+        help();
+    }
+
+    let pem = extract_pem(&mut args);
+
+    let mut lkr: Locker = Locker::new();
+
+    // strip program argument
+    args.remove(0);
+
+    let (lkr_path, lkr_entry, lkr_data) = if args.len() == 2
+    {
+        (args.get(0).unwrap(), args.get(1).unwrap(), None)
+    }
+    else if args.len() == 3
+    {
+        (args.get(0).unwrap(), args.get(1).unwrap(), Some(args.get(2).unwrap()))
+    }
+    else 
+    {
+        println!("No lkr file given as first argument, or entry as second, run locker file.lkr [value] {{data}} {{-k priv.pem}}");
+        help();
+        // compile requires this here
+        exit(0);
+    };
+
+    let rsa = get_rsa(pem);
+
+    match lkr_data 
+    {
+        None => 
+        {
+            if !Path::new(lkr_path).exists()
+            {
+                println!("Locker file {}, does not exit", lkr_path);
+                exit(0);
+            }
+
+            lkr.read(&lkr_path);
+
+            match lkr.get(&lkr_entry,rsa)
+            {
+                Ok(value) => {println!("retrived: {}", value);},
+                Err(why) => {println!("Key does not exist {}", why); exit(0)}
+            }
+        },
+        Some(data) => 
+        {
+
+            if Path::new(lkr_path).exists()
+            {
+                lkr.read(&lkr_path);
+                lkr.write(format!("{}.bk", lkr_path).as_str());
+            }
+
+            match lkr.insert(&lkr_entry,data,rsa)
+            {
+                Ok(_) => {},
+                Err(why) => {println!("Key already exists {}", why); exit(0)}
+            }
+
+            lkr.write(&lkr_path);
+        }
+    }
+    
+}
+
+fn help()
+{
+    println!("{}", HELP_STRING);
+    exit(0);
+}
+
+fn extract_pem(args: &mut Vec<String>) -> String
+{
+    if args.iter().any(|x| x == "-k")
     {
         let i = args.iter().position(|x| x == "-k").unwrap();
         if i+1 < args.len()
         {
-            args[i+1].parse::<String>().unwrap()
+            let s = args[i+1].parse::<String>().unwrap();
+            args.remove(i);
+            args.remove(i);
+            s
         }
         else
         {
+            args.remove(i);
             "private.pem".to_string()
         }
     }
     else 
     {
         "private.pem".to_string()
-    };
-
-    let mut encrypted_file: String = String::new();
-
-    let decrypting = if args.iter().any(|x| x == "-d")
-    {
-        let i = args.iter().position(|x| x == "-d").unwrap();
-        if i+1 < args.len()
-        {
-            encrypted_file = args[i+1].parse::<String>().unwrap();
-            true
-        }
-        else
-        {
-            panic!("No file given to decrypt");
-        }
     }
-    else 
-    {
-        false
-    };
+}
 
-    println!("Passphrase for PEM file {}",pem);
-    let mut pass = String::new();
-    
-    match io::stdin().read_line(&mut pass)
-    {
-        Err(why) => panic!("reading input: {}", why),
-        Ok(_) => ()
-    }
-
-    if pass.len() > 1
-    {
-        pass.remove(pass.len()-1);
-    }
-    else 
-    {
-        panic!("passphrase is empty");
-    }
+fn get_rsa(pem: String) -> Rsa<Private>
+{
+    let pass = rpassword::prompt_password
+    (
+        format!("Passphrase for PEM file {}: ",pem)
+    ).unwrap();
 
     let rsa = build_rsa(pem.as_str(), pass.as_str());
 
-    if decrypting
-    {
-        let data = util::read_file_raw(encrypted_file.as_str());
-        let result = decrypt(rsa, &data);
-        match std::str::from_utf8(&result)
-        {
-            Err(_e) => {println!("Not UTF8, dumping bytes\n"); for c in result { print!("{} ", c)}},
-            Ok(str) => println!("Decypted data:  \n{}", str)
-        }
-        
-    }
-    else 
-    {
-        println!("Enter some data to encrypt:");
-        let mut input = String::new();
-        
-        match io::stdin().read_line(&mut input)
-        {
-            Err(why) => panic!("reading input: {}", why),
-            Ok(_) => ()
-        }
-    
-        let result = encrypt(rsa, input.as_bytes());
-    
-        util::write_file("out", &result);
-    }
+    rsa
 }

@@ -1,14 +1,11 @@
+mod common;
+
 #[cfg(test)]
 mod test_encrypt_decrypt
 {
+    use crate::common::*;
     use locker::crypto::{encrypt, decrypt, build_rsa};
     use locker::util::read_file_raw;
-
-    const TEST_STRING: &str = "a secret message";
-    const PEM_PATH: &str = "tests/donotuse.pem";
-    const PEM_PASSWORD: &str = "password";
-    const TEST_ENCRYPTED_FILE: &str = "tests/encrypted";
-    const TEST_ENCRYPTED_FILE_PLAIN: &str = "abc";
 
     #[test]
     fn encrypt_decrypt()
