@@ -34,7 +34,7 @@ jobs:
 
     - name: compress-bundle-windows
       if: startsWith(matrix.os, 'windows')
-      run: Compress-Archive -Path folder/* -Destination new.zip
+      run: Compress-Archive -Path locker-windows-latest -Destination Locker-windows-latest.zip
 
     - name: compress-bundle-normal
       if: ${{ !startsWith(env.BRANCH_NAME, 'windows') }}
