@@ -31,7 +31,14 @@ jobs:
       run: |
           mkdir Locker
           cp target/release/locker locker-${{ matrix.os }}
-          zip Locker-${{ matrix.os }}.zip LICENSE locker-${{ matrix.os }}
+
+    - name: compress-bundle-windows
+      if: startsWith(matrix.os, 'windows')
+      run: Compress-Archive -Path folder/* -Destination new.zip
+
+    - name: compress-bundle-normal
+      if: !startsWith(matrix.os, 'windows')
+      run: zip Locker-${{ matrix.os }}.zip LICENSE locker-${{ matrix.os }}
 
     - name: upload bundle
       uses: actions/upload-artifact@v3
