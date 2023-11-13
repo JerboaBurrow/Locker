@@ -38,9 +38,7 @@ jobs:
       with:
         name: ${{ matrix.os }}
         path: Locker
-
-    -
-
+        
   release:
     needs: [build_test_and_bundle]
     if: github.ref_type == 'tag'
