@@ -65,15 +65,9 @@ jobs:
         run: |
               mkdir linux windows macos
               ls
-              cp LICENSE linux/
-              mv locker-ubuntu-latest linux/locker
-              zip -r linux-x86_64.zip linux/
-              cp LICENSE windows/
-              mv locker-windows-latest.exe windows/locker.exe
-              zip -r windows.zip windows/
-              cp LICENSE macos/
-              mv locker-macos-latest macos/locker
-              zip -r macOS.zip macos/
+              tar cvpfz linux-x86_64.tar.gz locker-ubuntu-latest LICENSE
+              zip windows.zip locker-windows-latest.exe LICENSE
+              tar cvpfz macOS.tar.gz locker-macos-latest LICENSE
               
 
   #     https://github.com/softprops/action-gh-release
@@ -85,6 +79,6 @@ jobs:
           name: "release-${{ github.ref_name }}"
           tag_name: ${{ github.ref }}
           files: |
-            linux-x86_64.zip
+            linux-x86_64.tar.gz
             windows.zip
-            macOS.zip
+            macOS.ztar.gz
