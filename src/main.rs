@@ -101,8 +101,11 @@ fn main()
 
             if Path::new(lkr_path).exists()
             {
-                lkr.read(&lkr_path);
-                lkr.write(format!("{}.bk", lkr_path).as_str());
+                match std::fs::copy(lkr_path, format!("{}.bk",lkr_path))
+                {
+                    Ok(_) => {},
+                    Err(why) => {panic!("Error when backing up lkr file {} to {}.bk: {}", lkr_path, lkr_path, why)}
+                }
             }
 
             match lkr.insert(&lkr_entry,data,rsa)
