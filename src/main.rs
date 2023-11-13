@@ -4,7 +4,7 @@ use std::path::Path;
 use locker::
 {
     crypto::build_rsa,
-    file::Locker
+    file::Locker,
 };
 
 use openssl::
@@ -47,10 +47,18 @@ Notes:
 fn main()
 {
     let mut args: Vec<String> = std::env::args().collect();
+    let mut get_keys = false;
 
     if args.iter().any(|x| x == "-h")
     {
         help();
+    }
+
+    if args.iter().any(|x| x == "-get_keys")
+    {
+        let i = args.iter().position(|x| x == "-get_keys").unwrap();
+        get_keys = true;
+        args.remove(i);
     }
 
     let pem = extract_pem(&mut args);
@@ -124,6 +132,16 @@ fn help()
 {
     println!("{}", HELP_STRING);
     exit(0);
+}
+
+fn show_keys(lkr: Locker, rsa: Rsa<Private>)
+{
+    let keys = lkr.get_keys(rsa);
+
+    for key in keys 
+    {
+        println!("{}", key);
+    }
 }
 
 fn extract_pem(args: &mut Vec<String>) -> String

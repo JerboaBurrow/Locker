@@ -5,7 +5,7 @@ use openssl::
     sha::Sha256
 };
 
-use crate::util::read_file_utf8;
+use crate::util::{read_file_utf8, dump_bytes};
 
 pub fn build_rsa(path: &str, pass: &str) -> Rsa<Private>
 {
@@ -54,4 +54,17 @@ pub fn hash(v: &str) -> [u8; 32]
     let mut sha = Sha256::new();
     sha.update(v.as_bytes());
     sha.finish()
+}
+
+pub fn decrypt_string(data: Vec<u8>, rsa: Rsa<Private>) -> String
+{
+    let result = decrypt(rsa, &data);
+    match std::str::from_utf8(&result)
+    {
+        Err(_e) => 
+        {
+            dump_bytes(&result)
+        }
+        Ok(str) => str.to_string().trim_matches(char::from(0)).to_string()
+    }
 }

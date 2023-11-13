@@ -24,12 +24,13 @@
 
 use crate::
 {
-    crypto::{hash, encrypt, decrypt},
+    crypto::{hash, encrypt, decrypt, decrypt_string},
     util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning}, 
-    Version, 
     program_version,
     compatible
 };
+
+use semver::Version;
 
 use openssl::sha::Sha256;
 
@@ -55,15 +56,25 @@ pub struct Entry
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Lkr
+pub struct Lkr0_1_0
 {
-    version: (String, String, String, String),
+    version: String,
     check_hash: String,
     entries: Vec<Entry>
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Lkr
+{
+    version: String,
+    check_hash: String,
+    entries: Vec<Entry>,
+    keys: Vec<String>
+}
+
 pub struct Locker {
-    data: HashMap<[u8; 32], Vec<u8>>
+    data: HashMap<[u8; 32], Vec<u8>>,
+    keys: Vec<Vec<u8>>
 }
 
 #[derive(Debug, Clone)]
@@ -95,7 +106,7 @@ impl Locker
 
     pub fn new() -> Locker
     {
-        Locker { data: HashMap::new() }
+        Locker { data: HashMap::new(), keys: Vec::new() }
     }
 
     pub fn contains(&self, key: &str) -> bool
@@ -111,7 +122,8 @@ impl Locker
             false => 
             {
                 let h = hash(key);
-                self.data.insert(h, encrypt(rsa, value.as_bytes()));
+                self.data.insert(h, encrypt(rsa.clone(), value.as_bytes()));
+                self.keys.push(encrypt(rsa, key.as_bytes()));
                 Ok(())
             },
             true => Err(KeyCollisionError {key: key.to_string()})
@@ -127,33 +139,41 @@ impl Locker
             {
                 let h = hash(&key);
                 let data = self.data.get(&h).unwrap();
-                let result = decrypt(rsa, &data);
-                match std::str::from_utf8(&result)
-                {
-                    Err(_e) => 
-                    {
-                        let s: Vec<String> = result.iter().map(|&c| c.to_string()).collect();
-                        Ok(s.join("").to_string())
-                    }
-                    Ok(str) => Ok(str.to_string().trim_matches(char::from(0)).to_string())
-                }
+                Ok(decrypt_string(data.to_vec(), rsa))
             }
         }
+    }
+
+    pub fn get_keys(&self, rsa: Rsa<Private>) -> Vec<String>
+    {
+        let mut keys: Vec<String> = Vec::new();
+        for key in &self.keys
+        {   
+            keys.push(decrypt_string(key.to_vec(), rsa.clone()));
+        }
+        keys
     }
 
     pub fn read(&mut self, path: &str)
     {
         let data = read_file_utf8(path);
-        let lkr: Lkr = serde_json::from_str(&data).unwrap();
-        let lkr_entries = lkr.entries;
 
-        let file_version = Version
+        match data.find("\"version\": [")
         {
-            major: lkr.version.0,
-            minor: lkr.version.1,
-            patch: lkr.version.2,
-            modifier: lkr.version.3
+            Some(_) => {panic!("Incompatible lkr file {}, version 0.1.0, loaded in newer release, {}", path, program_version())},
+            None => {}
+        }
+
+        let lkr: Lkr = match serde_json::from_str(&data)
+        {
+            Ok(data) => {data},
+            Err(why) => {panic!("Error while loading lkr file {}: {}", path, why)}
         };
+
+        let lkr_entries = lkr.entries;
+        let lkr_keys = lkr.keys;
+
+        let file_version = Version::parse(lkr.version.as_str()).unwrap();
 
         if file_version != program_version()
         {
@@ -193,6 +213,13 @@ impl Locker
             check_hash.update(entry.value.as_bytes());
         }
 
+        for key in lkr_keys
+        {
+            let k = read_bytes(key);
+            self.keys.push(k.clone());
+            check_hash.update(&k);
+        }
+
         if lkr.check_hash != dump_bytes(&check_hash.finish())
         {
             warning(format!("Computed hash from {} does not match check hash in file, possible manipulation",path).as_str());
@@ -202,7 +229,9 @@ impl Locker
     pub fn write(&self, path: &str)
     {
         let mut data: Vec<Entry> = Vec::new();
+        let mut keys: Vec<String> = Vec::new();
         let mut check_hash: Sha256 = Sha256::new();
+
         for (hash, value) in &self.data 
         {
             let hash_string = dump_bytes(hash);
@@ -213,13 +242,22 @@ impl Locker
             check_hash.update(value_string.as_bytes());
         }
 
+        for key in &self.keys
+        {
+            let key_string = dump_bytes(&key);
+
+            keys.push(key_string.clone());
+            check_hash.update(key_string.as_bytes());
+        }
+
         let v = program_version();
 
         let lkr = Lkr
         {
-            version: (v.major, v.minor, v.patch, v.modifier), 
+            version: v.to_string(), 
             check_hash: dump_bytes(&check_hash.finish()), 
-            entries: data
+            entries: data,
+            keys
         };
 
         match serde_json::to_string_pretty(&lkr)

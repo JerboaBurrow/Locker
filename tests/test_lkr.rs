@@ -22,7 +22,10 @@ mod test_lkr
         let mut lkr: Locker = Locker::new();
         lkr.read(LKR_PATH);
 
-        let v = lkr.get(LKR_KEY, rsa).unwrap();
+        let v = lkr.get(LKR_KEY, rsa.clone()).unwrap();
         assert_eq!(v, LKR_VALUE);
+
+        let keys = lkr.get_keys(rsa);
+        assert_eq!(keys, vec![LKR_KEY.to_string()]);
     }
 }
