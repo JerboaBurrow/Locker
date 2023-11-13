@@ -87,4 +87,4 @@ jobs:
           files: |
             linux-x86_64.tar.gz
             windows.zip
-            macOS.ztar.gz
+            macOS.tar.gz
