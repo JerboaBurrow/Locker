@@ -30,15 +30,14 @@ jobs:
       shell: bash
       run: |
           mkdir Locker
-          mkdir Locker/${{ matrix.os }}
-          cp LICENSE Locker/
-          cp target/release/locker Locker/${{ matrix.os }}/
+          cp target/release/locker locker-${{ matrix.os }}
+          zip Locker-${{ matrix.os }}.zip LICENSE locker-${{ matrix.os }}
 
     - name: upload bundle
       uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.os }}
-        path: Locker
+        path: Locker-${{ matrix.os }}.zip
 
   release:
     needs: [build_test_and_bundle]
@@ -64,7 +63,21 @@ jobs:
 
       - name: pack
         run: |
-              zip -r Locker.zip Locker
+              mkdir linux windows macos
+              ls
+              unzip Locker-ubuntu-latest.zip
+              mv LICENSE linux/
+              mv locker-ubuntu-latest linux/locker
+              zip -r linux-x86_64.zip linux/
+              unzip Locker-windows-latest.zip
+              mv LICENSE windows/
+              mv locker-windows-latest windows/locker
+              zip -r windows.zip windows/
+              unzip Locker-macos-latest.zip
+              mv LICENSE macos/
+              mv locker-macos-latest macos/locker
+              zip -r macOS.zip macos/
+              
 
   #     https://github.com/softprops/action-gh-release
       - name: release
@@ -74,4 +87,7 @@ jobs:
           prerelease: true
           name: "release-${{ github.ref_name }}"
           tag_name: ${{ github.ref }}
-          files: Locker.zip
+          files: |
+            linux-x86_64.zip
+            windows.zip
+            macOS.zip
