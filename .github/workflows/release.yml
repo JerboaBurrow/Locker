@@ -65,9 +65,15 @@ jobs:
         run: |
               mkdir linux windows macos
               ls
-              tar cvpfz linux-x86_64.tar.gz locker-ubuntu-latest LICENSE
-              zip windows.zip locker-windows-latest.exe LICENSE
-              tar cvpfz macOS.tar.gz locker-macos-latest LICENSE
+              mv locker-ubuntu-latest locker
+              chmod +x locker
+              tar cvpfz linux-x86_64.tar.gz locker LICENSE
+              mv locker-windows-latest.exe locker.exe
+              chmod +x locker.exe
+              zip windows.zip locker.exe LICENSE
+              mv locker-macos-latest locker
+              chmod +x locker
+              tar cvpfz macOS.tar.gz locker LICENSE
               
 
   #     https://github.com/softprops/action-gh-release
