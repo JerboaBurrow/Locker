@@ -37,7 +37,7 @@ jobs:
       run: Compress-Archive -Path folder/* -Destination new.zip
 
     - name: compress-bundle-normal
-      if: !startsWith(matrix.os, 'windows')
+      if: ${{ !startsWith(env.BRANCH_NAME, 'windows') }}
       run: zip Locker-${{ matrix.os }}.zip LICENSE locker-${{ matrix.os }}
 
     - name: upload bundle
