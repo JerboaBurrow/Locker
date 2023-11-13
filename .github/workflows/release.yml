@@ -38,7 +38,7 @@ jobs:
       with:
         name: ${{ matrix.os }}
         path: Locker
-        
+
   release:
     needs: [build_test_and_bundle]
     if: github.ref_type == 'tag'
@@ -69,7 +69,7 @@ jobs:
               mv locker-ubuntu-latest linux/locker
               zip -r linux-x86_64.zip linux/
               cp LICENSE windows/
-              mv locker-windows-latest windows/locker
+              mv locker-windows-latest.exe windows/locker.exe
               zip -r windows.zip windows/
               cp LICENSE macos/
               mv locker-macos-latest macos/locker
