@@ -1,6 +1,8 @@
+pub mod error;
 pub mod crypto;
 pub mod util;
 pub mod file;
+
 const MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
 const MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
 const PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");

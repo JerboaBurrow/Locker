@@ -24,10 +24,11 @@
 
 use crate::
 {
-    crypto::{hash, encrypt, decrypt, decrypt_string},
+    crypto::{hash, encrypt, decrypt_string},
     util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning}, 
     program_version,
-    compatible
+    compatible,
+    error::{KeyCollisionError, KeyNonExistantError, ReadError, WriteError}
 };
 
 use semver::Version;
@@ -75,30 +76,6 @@ pub struct Lkr
 pub struct Locker {
     data: HashMap<[u8; 32], Vec<u8>>,
     keys: Vec<Vec<u8>>
-}
-
-#[derive(Debug, Clone)]
-pub struct KeyCollisionError
-{
-    key: String
-}
-
-impl fmt::Display for KeyCollisionError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "key {}, is already in lkr file", self.key)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct KeyNonExistantError
-{
-    key: String
-}
-
-impl fmt::Display for KeyNonExistantError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "key, {}, is not in lkr file", self.key)
-    }
 }
 
 impl Locker 
@@ -154,20 +131,27 @@ impl Locker
         keys
     }
 
-    pub fn read(&mut self, path: &str)
+    pub fn read(&mut self, path: &str) -> Result<(), ReadError>
     {
         let data = read_file_utf8(path);
 
         match data.find("\"version\": [")
         {
-            Some(_) => {panic!("Incompatible lkr file {}, version 0.1.0, loaded in newer release, {}", path, program_version())},
+            Some(_) => 
+            {
+                let msg = format!("Incompatible lkr file {}, version 0.1.0, loaded in newer release, {}", path, program_version());
+                return Err(ReadError {why: msg, file: path.to_string()})
+            },
             None => {}
         }
 
         let lkr: Lkr = match serde_json::from_str(&data)
         {
             Ok(data) => {data},
-            Err(why) => {panic!("Error while loading lkr file {}: {}", path, why)}
+            Err(why) => 
+            {
+                return Err(ReadError{ why: format!("Error while loading lkr file {}: {}", path, why), file: path.to_string()})
+            }
         };
 
         let lkr_entries = lkr.entries;
@@ -201,7 +185,11 @@ impl Locker
             match entry.hash.len()
             {
                 64 => {/*void*/},
-                _ => {panic!("found entry with hash value of incorrect size (256 bytes) in {}", path)}
+                _ => 
+                {
+                    let msg = format!("found entry with hash value of incorrect size (256 bytes) in {}", path);
+                    return Err(ReadError { why: msg, file:path.to_string() })
+                }
             };
 
             let h: [u8; 32] = read_bytes(entry.hash.clone()).try_into().unwrap();
@@ -224,9 +212,10 @@ impl Locker
         {
             warning(format!("Computed hash from {} does not match check hash in file, possible manipulation",path).as_str());
         }
+        Ok(())
     }
 
-    pub fn write(&self, path: &str)
+    pub fn write(&self, path: &str) -> Result<(), WriteError>
     {
         let mut data: Vec<Entry> = Vec::new();
         let mut keys: Vec<String> = Vec::new();
@@ -266,8 +255,12 @@ impl Locker
             {
                 write_file(path, se.as_bytes())
             },
-            Err(why) => {panic!("serde_json serialisation error: {}", why)}
+            Err(why) => 
+            {
+                return Err(WriteError { why: format!("serde_json serialisation error: {}", why), file: path.to_string() })
+            }
         }
+        Ok(())
     }
 }
 

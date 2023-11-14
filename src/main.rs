@@ -6,6 +6,7 @@ use locker::
 {
     crypto::build_rsa,
     file::Locker,
+    error::{CommandError, CommandResult}
 };
 
 use openssl::
@@ -13,23 +14,6 @@ use openssl::
     rsa::Rsa,
     pkey::Private
 };
-
-#[derive(Debug, Clone)]
-pub struct CommandError
-{
-    why: String
-}
-
-pub enum CommandResult {
-    OK,
-    UNKNOWN
-}
-
-impl fmt::Display for CommandError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.why)
-    }
-}
 
 use rpassword;
 
@@ -129,7 +113,15 @@ fn main()
                 exit(0);
             }
 
-            lkr.read(&lkr_path);
+            match lkr.read(&lkr_path)
+            {
+                Ok(_) => {},
+                Err(why) => 
+                {
+                    println!("{}", why);
+                    exit(1);
+                }
+            }
 
             match lkr.get(&lkr_entry,rsa)
             {
@@ -142,7 +134,17 @@ fn main()
 
             if Path::new(lkr_path).exists()
             {
-                lkr.read(&lkr_path);
+
+                match lkr.read(&lkr_path)
+                {
+                    Ok(_) => {},
+                    Err(why) => 
+                    {
+                        println!("{}", why);
+                        exit(1);
+                    }
+                }
+
                 match std::fs::copy(lkr_path, format!("{}.bk",lkr_path))
                 {
                     Ok(_) => {},
@@ -155,8 +157,16 @@ fn main()
                 Ok(_) => {},
                 Err(why) => {println!("Key already exists {}", why); exit(0)}
             }
-
-            lkr.write(&lkr_path);
+            
+            match lkr.write(&lkr_path)
+            {
+                Ok(_) => {},
+                Err(why) => 
+                {
+                    println!("{}", why);
+                    exit(1);
+                }
+            }
         }
     }
     
@@ -227,7 +237,16 @@ fn show_keys(lkr_path: &str, rsa: Rsa<Private>) -> Result<CommandResult, Command
 
     let mut lkr = Locker::new();
 
-    lkr.read(&lkr_path);
+    match lkr.read(&lkr_path)
+    {
+        Ok(_) => {},
+        Err(why) => 
+        {
+            println!("{}", why);
+            exit(1);
+        }
+    }
+    
     let keys = lkr.get_keys(rsa);
 
     for key in keys 
