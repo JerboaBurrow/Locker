@@ -1,5 +1,6 @@
 use std::process::exit;
 use std::path::Path;
+use std::fmt;
 
 use locker::
 {
@@ -13,16 +14,37 @@ use openssl::
     pkey::Private
 };
 
+#[derive(Debug, Clone)]
+pub struct CommandError
+{
+    why: String
+}
+
+pub enum CommandResult {
+    OK,
+    UNKNOWN
+}
+
+impl fmt::Display for CommandError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.why)
+    }
+}
+
 use rpassword;
 
 const HELP_STRING: &str = r#"
-Locker usage:
+Locker general usage (see also commands):
 
-    locker [file.lkr] [entry] {data} {-k private_key.pem}
-    
-  []'d arguments are required, {}'d arguments are optional.
+    locker [file.lkr] [entry] {data} -k private_key.pem
 
-  Specifying {data} will run locker in store mode, ommiting
+Locker commands:
+
+    (print keys in file.lkr) locker [file.lkr] get_keys -k private_key.pem 
+ 
+  []'d arguments are required, -'d arguments are optional
+
+  Specifying {data} will run locker in store mode, omitting
     it will run locker in retrieve mode.
 
   Positional arguments:
@@ -47,18 +69,10 @@ Notes:
 fn main()
 {
     let mut args: Vec<String> = std::env::args().collect();
-    let mut get_keys = false;
 
     if args.iter().any(|x| x == "-h")
     {
         help();
-    }
-
-    if args.iter().any(|x| x == "-get_keys")
-    {
-        let i = args.iter().position(|x| x == "-get_keys").unwrap();
-        get_keys = true;
-        args.remove(i);
     }
 
     let pem = extract_pem(&mut args);
@@ -84,6 +98,25 @@ fn main()
         exit(0);
     };
 
+    if lkr_data == None
+    {
+        match handle_command(lkr_path, pem.as_str(), &lkr_entry)
+        {
+            Ok(status) => 
+            {
+                match status 
+                {
+                    CommandResult::OK => {exit(0)},
+                    CommandResult::UNKNOWN => {}
+                }
+            }
+            Err(why) => 
+            {
+                println!("{}", why); exit(1);
+            }
+        }
+    }
+
     let rsa = get_rsa(pem);
 
     match lkr_data 
@@ -101,7 +134,7 @@ fn main()
             match lkr.get(&lkr_entry,rsa)
             {
                 Ok(value) => {println!("retrived: {}", value);},
-                Err(why) => {println!("Key does not exist {}", why); exit(0)}
+                Err(why) => {println!("Key does not exist: {}", why); exit(0)}
             }
         },
         Some(data) => 
@@ -109,6 +142,7 @@ fn main()
 
             if Path::new(lkr_path).exists()
             {
+                lkr.read(&lkr_path);
                 match std::fs::copy(lkr_path, format!("{}.bk",lkr_path))
                 {
                     Ok(_) => {},
@@ -132,16 +166,6 @@ fn help()
 {
     println!("{}", HELP_STRING);
     exit(0);
-}
-
-fn show_keys(lkr: Locker, rsa: Rsa<Private>)
-{
-    let keys = lkr.get_keys(rsa);
-
-    for key in keys 
-    {
-        println!("{}", key);
-    }
 }
 
 fn extract_pem(args: &mut Vec<String>) -> String
@@ -178,4 +202,38 @@ fn get_rsa(pem: String) -> Rsa<Private>
     let rsa = build_rsa(pem.as_str(), pass.as_str());
 
     rsa
+}
+
+fn handle_command(lkr_path: &str, pem: &str, command: &str) -> Result<CommandResult, CommandError>
+{
+    match command
+    {
+        "show_keys" => 
+        {
+            let rsa = get_rsa(pem.to_string());
+            show_keys(lkr_path, rsa)
+        },
+        _ => {Ok(CommandResult::UNKNOWN)}
+    }
+}
+
+fn show_keys(lkr_path: &str, rsa: Rsa<Private>) -> Result<CommandResult, CommandError>
+{
+
+    if !Path::new(lkr_path).exists()
+    {
+        return Err(CommandError { why: format!("show_keys, lkr file {} does not exist", lkr_path) });
+    }
+
+    let mut lkr = Locker::new();
+
+    lkr.read(&lkr_path);
+    let keys = lkr.get_keys(rsa);
+
+    for key in keys 
+    {
+        println!("{}", key);
+    }
+
+    Ok(CommandResult::OK)
 }

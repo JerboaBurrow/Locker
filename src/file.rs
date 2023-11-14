@@ -97,7 +97,7 @@ pub struct KeyNonExistantError
 
 impl fmt::Display for KeyNonExistantError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "key {}, is not in lkr file", self.key)
+        write!(f, "key, {}, is not in lkr file", self.key)
     }
 }
 
@@ -215,9 +215,9 @@ impl Locker
 
         for key in lkr_keys
         {
-            let k = read_bytes(key);
+            let k = read_bytes(key.clone());
             self.keys.push(k.clone());
-            check_hash.update(&k);
+            check_hash.update(key.as_bytes());
         }
 
         if lkr.check_hash != dump_bytes(&check_hash.finish())
