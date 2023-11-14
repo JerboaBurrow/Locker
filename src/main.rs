@@ -24,7 +24,7 @@ Locker general usage (see also commands):
 
 Locker commands:
 
-    (print keys in file.lkr) locker [file.lkr] get_keys -k private_key.pem 
+    (print keys in file.lkr) locker [file.lkr] show_keys -k private_key.pem 
  
   []'d arguments are required, -'d arguments are optional
 
