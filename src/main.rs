@@ -67,6 +67,8 @@ fn main()
 
     let pem = extract_pem(&mut args);
 
+    let pass: Option<String> = extract_pass(&mut args);
+
     let mut lkr: Locker = Locker::new();
 
     // strip program argument
@@ -88,7 +90,19 @@ fn main()
 
     let path = lkr_path.unwrap();
 
-    let rsa = get_rsa(pem);
+    let password = match pass 
+    {
+        Some(s) => s,
+        None => 
+        {
+            rpassword::prompt_password
+            (
+                format!("Passphrase for PEM file {}: ",pem)
+            ).unwrap()
+        }
+    };
+        
+    let rsa = build_rsa(pem.as_str(), &password.as_str());
 
     match lkr_command
     {
@@ -200,6 +214,29 @@ fn help()
     exit(0);
 }
 
+fn extract_pass(args: &mut Vec<String>) -> Option<String>
+{
+    if args.iter().any(|arg| arg == "-p")
+    {
+        let i = args.iter().position(|x| x == "-p").unwrap();
+        if i+1 < args.len()
+        {
+            let s = args[i+1].parse::<String>().unwrap();
+            args.remove(i);
+            args.remove(i);
+            Some(s)
+        }
+        else 
+        {
+            None    
+        }
+    }
+    else
+    {
+        None
+    }
+}
+
 fn extract_pem(args: &mut Vec<String>) -> String
 {
     if args.iter().any(|x| x == "-k")
@@ -227,18 +264,6 @@ fn extract_pem(args: &mut Vec<String>) -> String
             Err(why) => {println!("While detecting PEM: {}", why); exit(1);}
         }
     }
-}
-
-fn get_rsa(pem: String) -> Rsa<Private>
-{
-    let pass = rpassword::prompt_password
-    (
-        format!("Passphrase for PEM file {}: ",pem)
-    ).unwrap();
-
-    let rsa = build_rsa(pem.as_str(), pass.as_str());
-
-    rsa
 }
 
 fn extract_arguments(args: Vec<String>) -> (Option<String>, Option<String>, Option<String>, Option<String>)
