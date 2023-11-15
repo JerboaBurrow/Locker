@@ -78,7 +78,6 @@ pub fn find_file_in_dir(pattern: Regex) -> Result<String, NoSuchFileError>
             for file in files 
             {
                 let file_os_string = file.unwrap().file_name();
-                println!("{:?}", file_os_string);
                 let file_string = match file_os_string.to_str()
                 {
                     Some(name) => {name},
