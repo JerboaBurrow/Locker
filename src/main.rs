@@ -1,12 +1,11 @@
 use std::process::exit;
 use std::path::Path;
-use std::fmt;
 
 use locker::
 {
     crypto::build_rsa,
     file::Locker,
-    error::{CommandError, CommandResult}
+    error::{CommandError, CommandResult}, util::find_file_in_dir
 };
 
 use openssl::
@@ -15,16 +14,18 @@ use openssl::
     pkey::Private
 };
 
+use regex::Regex;
+
 use rpassword;
 
 const HELP_STRING: &str = r#"
 Locker general usage (see also commands):
 
-    locker [file.lkr] [entry] {data} -k private_key.pem
+    locker [file.lkr] [entry] {data}
 
 Locker commands:
 
-    (print keys in file.lkr) locker [file.lkr] show_keys -k private_key.pem 
+    (print keys in file.lkr) locker [file.lkr] show_keys
  
   []'d arguments are required, -'d arguments are optional
 
@@ -49,6 +50,9 @@ Notes:
 
   When in storage mode a key collision will prompt for
     whether to quit, or overwrite."#;
+
+const PEM_FILE_REGEX: &str = r"[^\s-]*(.pem)$";
+const LKR_FILE_REGEX: &str = r"[^\s-]*(.lkr)$";
 
 fn main()
 {
@@ -125,7 +129,7 @@ fn main()
 
             match lkr.get(&lkr_entry,rsa)
             {
-                Ok(value) => {println!("retrived: {}", value);},
+                Ok(value) => {println!("retrieved: {}", value);},
                 Err(why) => {println!("Key does not exist: {}", why); exit(0)}
             }
         },
@@ -198,7 +202,12 @@ fn extract_pem(args: &mut Vec<String>) -> String
     }
     else 
     {
-        "private.pem".to_string()
+        let re = Regex::new(PEM_FILE_REGEX).unwrap();
+        match find_file_in_dir(re)
+        {
+            Ok(name) => {name},
+            Err(why) => {println!("While detecting PEM: {}", why); exit(1);}
+        }
     }
 }
 
