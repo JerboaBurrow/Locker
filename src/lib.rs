@@ -1,3 +1,4 @@
+pub mod error;
 pub mod crypto;
 pub mod util;
 pub mod file;
@@ -6,40 +7,45 @@ const MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
 const MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
 const PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
-#[derive(Clone, PartialEq, Eq)]
-pub struct Version 
-{
-    major: String,
-    minor: String,
-    patch: String,
-    modifier: String
-}
+use semver::{BuildMetadata, Prerelease, Version, VersionReq};
 
 // making a const Version, &'static or other stuff went to hell
 fn program_version() -> Version 
 {
     Version
     {
-        major: MAJOR.to_string(),
-        minor: MINOR.to_string(),
-        patch: PATCH.to_string(),
-        modifier: "".to_string()
+        major: MAJOR.parse().unwrap(),
+        minor: MINOR.parse().unwrap(),
+        patch: PATCH.parse().unwrap(),
+        pre: Prerelease::EMPTY,
+        build: BuildMetadata::EMPTY
     }
 }
 
-
 pub fn compatible(v: Version, u: Version) -> bool
 {
-    true
-}
-
-impl std::fmt::Display for Version {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.patch.as_str()
+    match v.major > 0
+    {
+        true => {true},
+        false => 
         {
-            "" => {write!(f, "{}.{}.{}",self.major, self.minor, self.patch)}
-            _ => {write!(f, "{}.{}.{}-{}",self.major, self.minor, self.patch, self.modifier)}
+            let initial_version = Version::parse("0.1.0").unwrap();
+            if v < initial_version || u < initial_version
+            {
+                false
+            }
+            else if v > u && u == initial_version
+            {
+                false 
+            }
+            else if u > v && v == initial_version
+            {
+                false 
+            }
+            else
+            {
+                true
+            }
         }
-        
     }
 }
