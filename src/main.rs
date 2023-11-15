@@ -5,7 +5,7 @@ use locker::
 {
     crypto::build_rsa,
     file::Locker,
-    error::{CommandError, CommandResult}, 
+    error::CommandResult, 
     util::find_file_in_dir,
     command::{handle_command, is_command}
 };
@@ -304,7 +304,7 @@ fn extract_arguments(args: Vec<String>) -> (Option<String>, Option<String>, Opti
             match find_file_in_dir(re)
             {
                 Ok(name) => {path = Some(name)},
-                Err(why) => {}
+                Err(_why) => {}
             }
         }
     }

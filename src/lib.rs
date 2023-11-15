@@ -8,7 +8,7 @@ const MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
 const MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
 const PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
-use semver::{BuildMetadata, Prerelease, Version, VersionReq};
+use semver::{BuildMetadata, Prerelease, Version};
 
 // making a const Version, &'static or other stuff went to hell
 fn program_version() -> Version 
