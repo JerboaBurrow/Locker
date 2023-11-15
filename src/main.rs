@@ -1,12 +1,13 @@
 use std::process::exit;
 use std::path::Path;
-use std::fmt;
 
 use locker::
 {
     crypto::build_rsa,
     file::Locker,
-    error::{CommandError, CommandResult}
+    error::CommandResult, 
+    util::find_file_in_dir,
+    command::{handle_command, is_command}
 };
 
 use openssl::
@@ -15,16 +16,18 @@ use openssl::
     pkey::Private
 };
 
+use regex::Regex;
+
 use rpassword;
 
 const HELP_STRING: &str = r#"
 Locker general usage (see also commands):
 
-    locker [file.lkr] [entry] {data} -k private_key.pem
+    locker [file.lkr] [entry] {data}
 
 Locker commands:
 
-    (print keys in file.lkr) locker [file.lkr] show_keys -k private_key.pem 
+    (print keys in file.lkr) locker [file.lkr] show_keys
  
   []'d arguments are required, -'d arguments are optional
 
@@ -50,6 +53,9 @@ Notes:
   When in storage mode a key collision will prompt for
     whether to quit, or overwrite."#;
 
+const PEM_FILE_REGEX: &str = r"[^\s-]*(.pem)$";
+const LKR_FILE_REGEX: &str = r"[^\s-]*(.lkr)$";
+
 fn main()
 {
     let mut args: Vec<String> = std::env::args().collect();
@@ -66,105 +72,121 @@ fn main()
     // strip program argument
     args.remove(0);
 
-    let (lkr_path, lkr_entry, lkr_data) = if args.len() == 2
-    {
-        (args.get(0).unwrap(), args.get(1).unwrap(), None)
-    }
-    else if args.len() == 3
-    {
-        (args.get(0).unwrap(), args.get(1).unwrap(), Some(args.get(2).unwrap()))
-    }
-    else 
-    {
-        println!("No lkr file given as first argument, or entry as second, run locker file.lkr [value] {{data}} {{-k priv.pem}}");
-        help();
-        // compile requires this here
-        exit(0);
-    };
+    let (lkr_path,lkr_command, lkr_entry, lkr_data) = extract_arguments(args);
 
-    if lkr_data == None
+    if lkr_command.is_none() && lkr_entry.is_none()
     {
-        match handle_command(lkr_path, pem.as_str(), &lkr_entry)
-        {
-            Ok(status) => 
-            {
-                match status 
-                {
-                    CommandResult::OK => {exit(0)},
-                    CommandResult::UNKNOWN => {}
-                }
-            }
-            Err(why) => 
-            {
-                println!("{}", why); exit(1);
-            }
-        }
+        println!("No command or entry key provided, nothing to do");
+        exit(1);
     }
+
+    if lkr_path.is_none()
+    {
+        println!("Could not find lkr file (in this directory, or in program arguments)");
+        exit(1);
+    }
+
+    let path = lkr_path.unwrap();
 
     let rsa = get_rsa(pem);
 
-    match lkr_data 
+    match lkr_command
     {
-        None => 
+        Some(command) =>
         {
-            if !Path::new(lkr_path).exists()
+            match handle_command(path.as_str(), rsa, &command)
             {
-                println!("Locker file {}, does not exit", lkr_path);
-                exit(0);
-            }
-
-            match lkr.read(&lkr_path)
-            {
-                Ok(_) => {},
-                Err(why) => 
+                Ok(status) => 
                 {
-                    println!("{}", why);
-                    exit(1);
-                }
-            }
-
-            match lkr.get(&lkr_entry,rsa)
-            {
-                Ok(value) => {println!("retrived: {}", value);},
-                Err(why) => {println!("Key does not exist: {}", why); exit(0)}
-            }
-        },
-        Some(data) => 
-        {
-
-            if Path::new(lkr_path).exists()
-            {
-
-                match lkr.read(&lkr_path)
-                {
-                    Ok(_) => {},
-                    Err(why) => 
+                    match status 
                     {
-                        println!("{}", why);
-                        exit(1);
+                        CommandResult::OK => {exit(0)},
+                        CommandResult::UNKNOWN => {}
                     }
                 }
-
-                match std::fs::copy(lkr_path, format!("{}.bk",lkr_path))
-                {
-                    Ok(_) => {},
-                    Err(why) => {panic!("Error when backing up lkr file {} to {}.bk: {}", lkr_path, lkr_path, why)}
-                }
-            }
-
-            match lkr.insert(&lkr_entry,data,rsa)
-            {
-                Ok(_) => {},
-                Err(why) => {println!("Key already exists {}", why); exit(0)}
-            }
-            
-            match lkr.write(&lkr_path)
-            {
-                Ok(_) => {},
                 Err(why) => 
                 {
-                    println!("{}", why);
+                    println!("{}", why); exit(1);
+                }
+            }
+        },
+        None => 
+        {
+            
+            let entry = match lkr_entry
+            {
+                Some(e) => {e}
+                None =>
+                {
+                    println!("No entry key specified, nothing to do");
                     exit(1);
+                }
+            };
+
+            match lkr_data 
+            {
+                None => 
+                {
+                    if !Path::new(path.as_str()).exists()
+                    {
+                        println!("Locker file {}, does not exit", path);
+                        exit(0);
+                    }
+        
+                    match lkr.read(path.as_str())
+                    {
+                        Ok(_) => {},
+                        Err(why) => 
+                        {
+                            println!("{}", why);
+                            exit(1);
+                        }
+                    }
+        
+                    match lkr.get(entry.as_str(),rsa)
+                    {
+                        Ok(value) => {println!("retrieved: {}", value);},
+                        Err(why) => {println!("Key does not exist: {}", why); exit(0)}
+                    }
+                },
+                Some(data) => 
+                {
+        
+                    if Path::new(path.as_str()).exists()
+                    {
+        
+                        match lkr.read(path.as_str())
+                        {
+                            Ok(_) => {},
+                            Err(why) => 
+                            {
+                                println!("{}", why);
+                                exit(1);
+                            }
+                        }
+        
+                        match std::fs::copy(path.clone(), format!("{}.bk",path))
+                        {
+                            Ok(_) => {},
+                            Err(why) => {panic!("Error when backing up lkr file {} to {}.bk: {}", path, path, why)}
+                        }
+                    }
+        
+                    match lkr.insert(entry.as_str(),&data,rsa)
+                    {
+                        Ok(_) => {},
+                        Err(why) => {println!("Key already exists {}", why); exit(0)}
+                    }
+                    
+                    match lkr.write(path.as_str())
+                    {
+                        Ok(_) => {},
+                        Err(why) => 
+                        {
+                            println!("{}", why);
+                            exit(1);
+                        }
+                    }
                 }
             }
         }
@@ -198,7 +220,12 @@ fn extract_pem(args: &mut Vec<String>) -> String
     }
     else 
     {
-        "private.pem".to_string()
+        let re = Regex::new(PEM_FILE_REGEX).unwrap();
+        match find_file_in_dir(re)
+        {
+            Ok(name) => {name},
+            Err(why) => {println!("While detecting PEM: {}", why); exit(1);}
+        }
     }
 }
 
@@ -214,45 +241,73 @@ fn get_rsa(pem: String) -> Rsa<Private>
     rsa
 }
 
-fn handle_command(lkr_path: &str, pem: &str, command: &str) -> Result<CommandResult, CommandError>
+fn extract_arguments(args: Vec<String>) -> (Option<String>, Option<String>, Option<String>, Option<String>)
 {
-    match command
+    let mut path: Option<String> = None;
+    let mut command: Option<String> = None;
+    let mut key: Option<String> = None;
+    let mut data: Option<String> = None;
+
+    let mut args_to_parse = args.clone();
+
+    let mut index = 0;
+
+    loop 
     {
-        "show_keys" => 
+        if args_to_parse.is_empty() || index == args_to_parse.len() { break; }
+
+        let arg = args_to_parse.get(index).unwrap().clone();
+        let pattern = Regex::new(LKR_FILE_REGEX).unwrap();
+        
+        let mut consumed = false; 
+
+        match pattern.captures(&arg)
         {
-            let rsa = get_rsa(pem.to_string());
-            show_keys(lkr_path, rsa)
-        },
-        _ => {Ok(CommandResult::UNKNOWN)}
-    }
-}
+            Some(_match) => 
+            {
+                path = Some(arg.to_string());
+                args_to_parse.remove(index);
+                consumed = true;
+            },
+            None => {}
+        }
 
-fn show_keys(lkr_path: &str, rsa: Rsa<Private>) -> Result<CommandResult, CommandError>
-{
-
-    if !Path::new(lkr_path).exists()
-    {
-        return Err(CommandError { why: format!("show_keys, lkr file {} does not exist", lkr_path) });
-    }
-
-    let mut lkr = Locker::new();
-
-    match lkr.read(&lkr_path)
-    {
-        Ok(_) => {},
-        Err(why) => 
+        if is_command(arg.to_string())
         {
-            println!("{}", why);
-            exit(1);
+            command = Some(arg.to_string());
+            args_to_parse.remove(index);
+            consumed = true;
+        }
+
+        if !consumed
+        {
+            index += 1;
         }
     }
-    
-    let keys = lkr.get_keys(rsa);
 
-    for key in keys 
+    if args_to_parse.len() >= 1
     {
-        println!("{}", key);
+        key = Some(args_to_parse.get(0).unwrap().to_string());
+    }
+    
+    if args_to_parse.len() > 1
+    {
+        data = Some(args_to_parse.get(1).unwrap().to_string());
     }
 
-    Ok(CommandResult::OK)
+    match path 
+    {
+        Some(_) => {},
+        None => 
+        {
+            let re = Regex::new(LKR_FILE_REGEX).unwrap();
+            match find_file_in_dir(re)
+            {
+                Ok(name) => {path = Some(name)},
+                Err(_why) => {}
+            }
+        }
+    }
+
+    (path, command, key, data)
 }

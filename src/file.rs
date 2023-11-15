@@ -37,11 +37,7 @@ use openssl::sha::Sha256;
 
 use serde::{Deserialize, Serialize};
 
-use std::
-{
-    collections::HashMap,
-    fmt
-};
+use std::collections::HashMap;
 
 use openssl::
 {
