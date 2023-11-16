@@ -32,7 +32,8 @@ Locker general usage (see also commands):
       a .pem file, and a lkr file as a .lkr in the current
       directory (see options to specify paths)
 
-    Options (see below) can be specified with -
+    Options (see below) can be specified with - for options 
+      without arguments, and -- for options with arguments
 
 Locker commands:
 
@@ -47,14 +48,14 @@ Locker commands:
   
   Options:
   
-    -k pem   path to (encrypted) RSA private key in pem 
+    --k pem   path to (encrypted) RSA private key in pem 
                format
 
-    -p pass  password for the pem file
+    --p pass  password for the pem file
 
-    -o       overwrite a key
+    -o        overwrite a key
 
-    -f lkr   path to .lkr file
+    --f lkr   path to .lkr file
 
 Notes:
 
@@ -266,22 +267,36 @@ fn extract_pem(args: &mut Vec<String>) -> String
             let s = args[i+1].parse::<String>().unwrap();
             args.remove(i);
             args.remove(i);
-            s
-        }
-        else
-        {
-            args.remove(i);
-            "private.pem".to_string()
+            return s
         }
     }
-    else 
+
+    let re = Regex::new(PEM_FILE_REGEX).unwrap();
+    match find_file_in_dir(re)
     {
-        let re = Regex::new(PEM_FILE_REGEX).unwrap();
-        match find_file_in_dir(re)
+        Ok(name) => {name},
+        Err(why) => {println!("While detecting PEM: {}", why); exit(1);}
+    }
+}
+
+fn extract_lkr(args: &mut Vec<String>) -> String
+{
+    if args.iter().any(|x| x == "-f")
+    {
+        let i = args.iter().position(|x| x == "-f").unwrap();
+        if i+1 < args.len()
         {
-            Ok(name) => {name},
-            Err(why) => {println!("While detecting PEM: {}", why); exit(1);}
+            let s = args[i+1].parse::<String>().unwrap();
+            args.remove(i);
+            args.remove(i);
+            return s
         }
+    }
+    let re = Regex::new(LKR_FILE_REGEX).unwrap();
+    match find_file_in_dir(re)
+    {
+        Ok(name) => {return name},
+        Err(why) => {println!("While detecting .lkr: {}", why); exit(1);}
     }
 }
 
@@ -296,36 +311,19 @@ fn extract_arguments(args: Vec<String>) -> (Option<String>, Option<String>, Opti
 
     let mut index = 0;
 
+    path = Some(extract_lkr(&mut args_to_parse));
+
     loop 
     {
         if args_to_parse.is_empty() || index == args_to_parse.len() { break; }
 
         let arg = args_to_parse.get(index).unwrap().clone();
-        let pattern = Regex::new(LKR_FILE_REGEX).unwrap();
-        
-        let mut consumed = false; 
-
-        match pattern.captures(&arg)
-        {
-            Some(_match) => 
-            {
-                path = Some(arg.to_string());
-                args_to_parse.remove(index);
-                consumed = true;
-            },
-            None => {}
-        }
 
         if is_command(arg.to_string())
         {
             command = Some(arg.to_string());
             args_to_parse.remove(index);
-            consumed = true;
-        }
-
-        if !consumed
-        {
-            index += 1;
+            index += 1
         }
     }
 
