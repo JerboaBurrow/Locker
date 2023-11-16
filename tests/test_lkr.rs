@@ -42,7 +42,7 @@ mod test_lkr
         let keys = lkr.get_keys(rsa.clone());
         assert_eq!(keys, vec![LKR_KEY.to_string()]);
 
-        lkr.insert(INSERTED_KEY, INSERTED_VALUE, rsa.clone()).unwrap();
+        lkr.insert(INSERTED_KEY, INSERTED_VALUE, rsa.clone(), false).unwrap();
 
         let keys = lkr.get_keys(rsa.clone());
         assert_eq!(keys, vec![LKR_KEY.to_string(), INSERTED_KEY.to_string()]);
@@ -61,7 +61,21 @@ mod test_lkr
         let keys = lkr.get_keys(rsa.clone());
         assert_eq!(keys, vec![LKR_KEY.to_string()]);
 
-        let result = lkr.insert(LKR_KEY, INSERTED_VALUE, rsa.clone());
+        let result = lkr.insert(LKR_KEY, INSERTED_VALUE, rsa.clone(), false);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn duplicate_insert_with_overwrite_lkr_file()
+    {
+        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD);
+        let mut lkr: Locker = Locker::new();
+        lkr.read(LKR_PATH).unwrap();
+
+        let keys = lkr.get_keys(rsa.clone());
+        assert_eq!(keys, vec![LKR_KEY.to_string()]);
+
+        let result = lkr.insert(LKR_KEY, INSERTED_VALUE, rsa.clone(), true);
+        assert!(result.is_ok());
     }
 }

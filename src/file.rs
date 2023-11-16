@@ -88,18 +88,19 @@ impl Locker
         self.data.contains_key(&h)
     }
 
-    pub fn insert(&mut self, key: &str, value: &str, rsa: Rsa<Private>) -> Result<(), KeyCollisionError>
+    pub fn insert(&mut self, key: &str, value: &str, rsa: Rsa<Private>, overwrite: bool) -> Result<(), KeyCollisionError>
     {
-        match self.contains(key)
+        let contains_key = self.contains(key);
+        if contains_key && !overwrite
         {
-            false => 
-            {
-                let h = hash(key);
-                self.data.insert(h, encrypt(rsa.clone(), value.as_bytes()));
-                self.keys.push(encrypt(rsa, key.as_bytes()));
-                Ok(())
-            },
-            true => Err(KeyCollisionError {key: key.to_string()})
+            Err(KeyCollisionError {key: key.to_string()})
+        }
+        else
+        {
+            if !contains_key { self.keys.push(encrypt(rsa.clone(), key.as_bytes())); }
+            let h = hash(key);
+            self.data.insert(h, encrypt(rsa, value.as_bytes()));
+            Ok(())
         }
     }
 

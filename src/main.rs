@@ -23,16 +23,20 @@ use rpassword;
 const HELP_STRING: &str = r#"
 Locker general usage (see also commands):
 
-    locker [file.lkr] [entry] {data}
+    locker entry {data}
+
+    Specifying {data} will run locker in store mode, omitting
+      it will run locker in retrieve mode.
+
+    Locker will automatically find a private key (RSA) as 
+      a .pem file, and a lkr file as a .lkr in the current
+      directory (see options to specify paths)
+
+    Options (see below) can be specified with -
 
 Locker commands:
 
-    (print keys in file.lkr) locker [file.lkr] show_keys
- 
-  []'d arguments are required, -'d arguments are optional
-
-  Specifying {data} will run locker in store mode, omitting
-    it will run locker in retrieve mode.
+    (print keys in file.lkr) locker show_keys
 
   Positional arguments:
   
@@ -45,6 +49,13 @@ Locker commands:
   
     -k pem   path to (encrypted) RSA private key in pem 
                format
+
+    -p pass  password for the pem file
+
+    -o       overwrite a key
+
+    -f lkr   path to .lkr file
+
 Notes:
 
   In storage mode locker will backup the locker file's prior
@@ -59,10 +70,18 @@ const LKR_FILE_REGEX: &str = r"[^\s-]*(.lkr)$";
 fn main()
 {
     let mut args: Vec<String> = std::env::args().collect();
+    let mut overwrite = false;
 
     if args.iter().any(|x| x == "-h")
     {
         help();
+    }
+
+    if args.iter().any(|arg| arg == "-o")
+    {
+        let index = args.iter().position(|arg| arg == "-o").unwrap();
+        args.remove(index);
+        overwrite = true;
     }
 
     let pem = extract_pem(&mut args);
@@ -186,7 +205,7 @@ fn main()
                         }
                     }
         
-                    match lkr.insert(entry.as_str(),&data,rsa)
+                    match lkr.insert(entry.as_str(),&data,rsa, overwrite)
                     {
                         Ok(_) => {},
                         Err(why) => {println!("Key already exists {}", why); exit(0)}
