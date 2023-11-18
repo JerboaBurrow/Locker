@@ -1,11 +1,16 @@
 #!/bin/bash
 
 EXIT=1
+COLOUR=1
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     -e|--exit)
       EXIT=0
+      shift # past argument
+      ;;
+    -c|--colour)
+      COLOUR=0
       shift # past argument
       ;;
     -*|--*)
@@ -19,22 +24,36 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [ $COLOUR -eq 0 ];
+then
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  NC='\033[0m'
+else
+  RED=''
+  GREEN=''
+  NC='' 
+fi
 
 repeat(){
 	for i in {1..80}; do echo -n "$1"; done
 }
 
+declare -a FAILING
+
 STATUS=0
 for reg in $(ls tests/regressions); 
 do 
     repeat - && echo
+    echo -e "regression: $reg\n\n" 
     source tests/regressions/$reg
     if [ $? -ne 0 ];
     then 
         STATUS=1
-        echo "FAILED"
+        echo -e "\n${RED}FAILED${NC}"
+        FAILING+=("'$reg'")
     else
-        echo "PASSED"
+        echo -e "\n${GREEN}PASSED${NC}"
     fi
 done
 
@@ -42,9 +61,10 @@ repeat - && echo
 
 if [ $STATUS -eq 0 ];
 then 
-    echo "PASSED"
+    echo -e "${GREEN}PASSED${NC}"
 else 
-    echo "FAILED"
+    echo -e "${RED}FAILED${NC}"
+    echo -e "${RED}FAILING: ${FAILING[*]}"
 fi
 
 if [ $EXIT -eq 0 ];

@@ -10,12 +10,6 @@ use locker::
     command::{handle_command, is_command}
 };
 
-use openssl::
-{
-    rsa::Rsa,
-    pkey::Private
-};
-
 use regex::Regex;
 
 use rpassword;
@@ -236,9 +230,9 @@ fn help()
 
 fn extract_pass(args: &mut Vec<String>) -> Option<String>
 {
-    if args.iter().any(|arg| arg == "-p")
+    if args.iter().any(|arg| arg == "--p")
     {
-        let i = args.iter().position(|x| x == "-p").unwrap();
+        let i = args.iter().position(|x| x == "--p").unwrap();
         if i+1 < args.len()
         {
             let s = args[i+1].parse::<String>().unwrap();
@@ -259,9 +253,9 @@ fn extract_pass(args: &mut Vec<String>) -> Option<String>
 
 fn extract_pem(args: &mut Vec<String>) -> String
 {
-    if args.iter().any(|x| x == "-k")
+    if args.iter().any(|x| x == "--k")
     {
-        let i = args.iter().position(|x| x == "-k").unwrap();
+        let i = args.iter().position(|x| x == "--k").unwrap();
         if i+1 < args.len()
         {
             let s = args[i+1].parse::<String>().unwrap();
@@ -281,9 +275,9 @@ fn extract_pem(args: &mut Vec<String>) -> String
 
 fn extract_lkr(args: &mut Vec<String>) -> String
 {
-    if args.iter().any(|x| x == "-f")
+    if args.iter().any(|x| x == "--f")
     {
-        let i = args.iter().position(|x| x == "-f").unwrap();
+        let i = args.iter().position(|x| x == "--f").unwrap();
         if i+1 < args.len()
         {
             let s = args[i+1].parse::<String>().unwrap();
@@ -302,7 +296,6 @@ fn extract_lkr(args: &mut Vec<String>) -> String
 
 fn extract_arguments(args: Vec<String>) -> (Option<String>, Option<String>, Option<String>, Option<String>)
 {
-    let mut path: Option<String> = None;
     let mut command: Option<String> = None;
     let mut key: Option<String> = None;
     let mut data: Option<String> = None;
@@ -311,7 +304,7 @@ fn extract_arguments(args: Vec<String>) -> (Option<String>, Option<String>, Opti
 
     let mut index = 0;
 
-    path = Some(extract_lkr(&mut args_to_parse));
+    let mut path: Option<String> = Some(extract_lkr(&mut args_to_parse));
 
     loop 
     {
@@ -323,7 +316,10 @@ fn extract_arguments(args: Vec<String>) -> (Option<String>, Option<String>, Opti
         {
             command = Some(arg.to_string());
             args_to_parse.remove(index);
-            index += 1
+        }
+        else 
+        {
+            index += 1;
         }
     }
 

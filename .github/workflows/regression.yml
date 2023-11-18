@@ -21,5 +21,5 @@ jobs:
       run: mkdir ~/bin && PATH=$PATH:~/bin && cp target/release/locker ~/bin/
 
     - name: regression tests
-      run: source tests/regressions.sh -e
+      run: source tests/regressions.sh -e -c
                                   
