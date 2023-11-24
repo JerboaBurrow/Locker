@@ -66,3 +66,15 @@ impl fmt::Display for CommandError {
         write!(f, "{}", self.why)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct NoSuchFileError
+{
+    pub why: String
+}
+
+impl fmt::Display for NoSuchFileError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "file matching, {}, not found in current dir", self.why)
+    }
+}

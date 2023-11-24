@@ -19,7 +19,11 @@ pub fn build_rsa(path: &str, pass: &str) -> Rsa<Private>
 
     match rsa_input
     {
-        Err(why) => panic!("when obtaining private key from pem file, {}, {}", path, why),
+        Err(why) => 
+        {
+            println!("{}", format!("Incorrect password for PEM {}?\nStack: \n{}", path, why));
+            std::process::exit(1);
+        },
         Ok(_) => ()
     }
 
