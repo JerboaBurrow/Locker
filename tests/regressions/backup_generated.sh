@@ -1,3 +1,4 @@
+#!/bin/bash
 echo -e "set existing key k, f, p, o specified:\n"
 
 cp tests/test.lkr reg.lkr

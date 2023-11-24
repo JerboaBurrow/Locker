@@ -1,14 +1,16 @@
 on:
-  pull_request:
+  push:
 
-name: Regression tests
+name: Regression CI tests
 
 jobs:
 
   build_and_regression:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
 
     steps:
+
     - uses: actions/checkout@v3
 
     - name: setup rust stable
@@ -17,9 +19,8 @@ jobs:
     - name: build
       run: cargo build --release
 
-    - name: setup
-      run: mkdir ~/bin && PATH=$PATH:~/bin && cp target/release/locker ~/bin/
-
     - name: regression tests
-      run: source tests/regressions.sh -e -c
+      run: |
+        mkdir ~/bin && export PATH=$PATH:~/bin && cp target/release/locker ~/bin/
+        source tests/regressions.sh -e -c
                                   

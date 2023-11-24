@@ -1,8 +1,7 @@
 on:
-  push:
-    branches-ignore: 'main'
+  pull_request:
 
-name: CI
+name: PR Build and test
 
 jobs:
   build_and_test:
@@ -18,7 +17,13 @@ jobs:
       run: curl https://sh.rustup.rs -sSf | sh -s -- -y
 
     - name: unit tests
-      run: cargo test --all   
+      run: cargo build --release && cargo test --all  
+
+    - name: regression tests
+      shell: bash
+      run: |
+        mkdir ~/bin && export PATH=$PATH:~/bin && cp target/release/locker ~/bin/
+        ./tests/regressions.sh -e
 
   build_and_test_coverage:
     runs-on: ubuntu-latest
@@ -30,7 +35,12 @@ jobs:
       run: curl https://sh.rustup.rs -sSf | sh -s -- -y && cargo install cargo-tarpaulin
 
     - name: unit tests with coverage
-      run: cargo tarpaulin --out json 
+      run: cargo build --release && cargo tarpaulin --out json
+
+    - name: regression tests
+      run: |
+        mkdir ~/bin && export PATH=$PATH:~/bin && cp target/release/locker ~/bin/
+        source tests/regressions.sh -e -c
 
     - name: upload bundle
       uses: actions/upload-artifact@v3
