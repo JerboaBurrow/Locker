@@ -4,8 +4,7 @@ Lightweight encrypted data store in Rust
 
 - Quickly store and retrieve key-value pairs encrypted with ```RSA```
 
-[![Regression tests](https://github.com/JerboaBurrow/Locker/actions/workflows/regression.yml/badge.svg)](https://github.com/JerboaBurrow/Locker/actions/workflows/regression.yml) 
-[![release](https://github.com/JerboaBurrow/Locker/actions/workflows/release.yml/badge.svg)](https://github.com/JerboaBurrow/Locker/actions/workflows/release.yml)
+[![Cross platform](https://github.com/JerboaBurrow/Locker/actions/workflows/tests.yml/badge.svg)](https://github.com/JerboaBurrow/Locker/actions/workflows/tests.yml)
 
 #### Caution this software has no independent security audit. However, cryptography is supplied by [OpenSSL](https://github.com/openssl/openssl) via [rust-openssl](https://github.com/sfackler/rust-openssl), use at your own risk.
 
