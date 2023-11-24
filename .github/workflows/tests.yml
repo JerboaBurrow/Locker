@@ -1,7 +1,7 @@
 on:
   pull_request:
 
-name: PR Build and test
+name: Cross platform
 
 jobs:
   build_and_test:
