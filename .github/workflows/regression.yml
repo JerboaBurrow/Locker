@@ -1,7 +1,7 @@
 on:
   push:
 
-name: Regression CI tests
+name: Regression tests
 
 jobs:
 
