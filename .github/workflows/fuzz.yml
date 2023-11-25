@@ -4,7 +4,7 @@ on:
 name: Fuzzing
 
 jobs:
-  fuzz_with_coverage:
+  fuzz:
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +17,7 @@ jobs:
         cargo install fuzz
 
     - name: fuzzing
-      run: source fuzz/run_fuzz -c -t 120
+      run: source fuzz/run_fuzz.sh -c -t 120
 
     - name: upload bundle
       uses: actions/upload-artifact@v3
