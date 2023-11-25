@@ -14,7 +14,7 @@ jobs:
       run: |
         curl https://sh.rustup.rs -sSf | sh -s -- -y 
         rustup install nightly && rustup default nightly
-        cargo install fuzz
+        cargo install cargo-fuzz
 
     - name: fuzzing
       run: source fuzz/run_fuzz.sh -c -t 120
