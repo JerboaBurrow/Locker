@@ -103,3 +103,15 @@ impl fmt::Display for ReadFileError {
         write!(f, "While reading file {}: {}", self.file, self.why)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct ArgumentError
+{
+    pub why: String
+}
+
+impl fmt::Display for ArgumentError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "While reading commandline arguments: {}", self.why)
+    }
+}
