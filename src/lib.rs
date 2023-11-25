@@ -3,6 +3,7 @@ pub mod crypto;
 pub mod util;
 pub mod file;
 pub mod command;
+pub mod arguments;
 
 const MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
 const MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");

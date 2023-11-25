@@ -4,3 +4,6 @@ out
 tmp
 tarpaulin-report.json
 reg.*
+fuzz/corpus
+fuzz/artifacts
+fuzz/target

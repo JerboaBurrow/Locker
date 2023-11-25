@@ -1,0 +1,22 @@
+on:
+  pull_request:
+
+name: Fuzzing
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: setup rust stable
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- -y 
+        rustup install nightly && rustup default nightly
+        cargo install cargo-fuzz
+
+    - name: fuzzing
+      run: source fuzz/run_fuzz.sh -c -t 120
+
+                                  

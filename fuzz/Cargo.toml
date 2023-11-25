@@ -1,0 +1,51 @@
+[package]
+name = "locker-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.locker]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "fuzz_build_rsa"
+path = "fuzz_targets/fuzz_build_rsa.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_extract_pass"
+path = "fuzz_targets/fuzz_extract_pass.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_extract_pem"
+path = "fuzz_targets/fuzz_extract_pem.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_extract_lkr"
+path = "fuzz_targets/fuzz_extract_lkr.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_extract_arguments"
+path = "fuzz_targets/fuzz_extract_arguments.rs"
+test = false
+doc = false

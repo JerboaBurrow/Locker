@@ -9,7 +9,7 @@ mod test_util
     #[test]
     fn test_read_uft8()
     {
-        let read = read_file_utf8("tests/input.txt");
+        let read = read_file_utf8("tests/input.txt").unwrap();
         assert_eq!(TEST_STRING, read);
     }
 
@@ -17,7 +17,7 @@ mod test_util
     fn test_write_read()
     {
         write_file("tmp", TEST_STRING.as_bytes());
-        assert_eq!(read_file_utf8("tmp"), TEST_STRING)
+        assert_eq!(read_file_utf8("tmp").unwrap(), TEST_STRING)
     }
 
     const TEST_BYTES: &[u8] = &[57, 66, 176, 83, 200, 31, 35, 61, 119, 108, 84, 131, 49, 68, 
@@ -60,7 +60,7 @@ mod test_util
     #[test]
     fn test_read_raw()
     {
-        let data = read_file_raw("tests/encrypted");
+        let data = read_file_raw("tests/encrypted").unwrap();
         assert_eq!(data, TEST_BYTES);
     }
 }
