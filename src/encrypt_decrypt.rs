@@ -71,11 +71,11 @@ fn main()
         panic!("passphrase is empty");
     }
 
-    let rsa = build_rsa(pem.as_str(), pass.as_str());
+    let rsa = build_rsa(pem.as_str(), pass.as_str()).unwrap();
 
     if decrypting
     {
-        let data = util::read_file_raw(encrypted_file.as_str());
+        let data = util::read_file_raw(encrypted_file.as_str()).unwrap();
         let result = decrypt(rsa, &data);
         match std::str::from_utf8(&result)
         {

@@ -21,7 +21,7 @@ mod test_lkr
     #[test]
     fn read_lkr_file()
     {
-        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD);
+        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD).unwrap();
         let mut lkr: Locker = Locker::new();
         lkr.read(LKR_PATH).unwrap();
 
@@ -35,7 +35,7 @@ mod test_lkr
     #[test]
     fn insert_lkr_file()
     {
-        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD);
+        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD).unwrap();
         let mut lkr: Locker = Locker::new();
         lkr.read(LKR_PATH).unwrap();
 
@@ -54,7 +54,7 @@ mod test_lkr
     #[test]
     fn duplicate_insert_lkr_file()
     {
-        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD);
+        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD).unwrap();
         let mut lkr: Locker = Locker::new();
         lkr.read(LKR_PATH).unwrap();
 
@@ -68,7 +68,7 @@ mod test_lkr
     #[test]
     fn duplicate_insert_with_overwrite_lkr_file()
     {
-        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD);
+        let rsa = build_rsa(PEM_PATH, PEM_PASSWORD).unwrap();
         let mut lkr: Locker = Locker::new();
         lkr.read(LKR_PATH).unwrap();
 

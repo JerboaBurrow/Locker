@@ -78,3 +78,28 @@ impl fmt::Display for NoSuchFileError {
         write!(f, "file matching, {}, not found in current dir", self.why)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct RSAError
+{
+    pub why: String
+}
+
+impl fmt::Display for RSAError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "While building RSA: {}", self.why)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ReadFileError
+{
+    pub file: String,
+    pub why: String
+}
+
+impl fmt::Display for ReadFileError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "While reading file {}: {}", self.file, self.why)
+    }
+}

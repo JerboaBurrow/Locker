@@ -5,11 +5,28 @@ use openssl::
     sha::Sha256
 };
 
-use crate::util::{read_file_utf8, dump_bytes};
-
-pub fn build_rsa(path: &str, pass: &str) -> Rsa<Private>
+use crate::
 {
-    let pem = read_file_utf8(path);
+    util::{read_file_utf8, dump_bytes},
+    error::RSAError
+};
+
+pub fn build_rsa(path: &str, pass: &str) -> Result<Rsa<Private>, RSAError>
+{
+    let pem = match read_file_utf8(path)
+    {
+        Ok(p) => p,
+        Err(e) => 
+        {
+            return Err
+            (
+                RSAError 
+                { 
+                    why: format!("PEM file, {}, read error: {}",e.file, e.why)
+                }
+            )
+        }
+    };
 
     let rsa_input = Rsa::private_key_from_pem_passphrase
     (
@@ -21,14 +38,10 @@ pub fn build_rsa(path: &str, pass: &str) -> Rsa<Private>
     {
         Err(why) => 
         {
-            println!("{}", format!("Incorrect password for PEM {}?\nStack: \n{}", path, why));
-            std::process::exit(1);
+            Err(RSAError {why: format!("Incorrect password for PEM {}?\nStack: \n{}", path, why) })
         },
-        Ok(_) => ()
+        Ok(_) => {Ok(rsa_input.unwrap())}
     }
-
-    rsa_input.unwrap()
-
 }
 
 /*

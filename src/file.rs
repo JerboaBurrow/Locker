@@ -130,7 +130,14 @@ impl Locker
 
     pub fn read(&mut self, path: &str) -> Result<(), ReadError>
     {
-        let data = read_file_utf8(path);
+        let data = match read_file_utf8(path)
+        {
+            Ok(d) => d,
+            Err(e) =>
+            {
+                return Err(ReadError { why: e.why, file: e.file })
+            }
+        };
 
         match data.find("\"version\": [")
         {

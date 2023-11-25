@@ -1,0 +1,28 @@
+on:
+  pull_request:
+
+name: Fuzzing
+
+jobs:
+  fuzz_with_coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: setup rust stable
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- -y 
+        rustup install nightly && rustup default nightly
+        cargo install fuzz
+
+    - name: fuzzing
+      run: source fuzz/run_fuzz -c -t 120
+
+    - name: upload bundle
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage
+        path: index.html
+
+                                  

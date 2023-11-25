@@ -6,24 +6,43 @@ use std::io::Write as ioWrite;
 
 use regex::Regex;
 
-use crate::error::NoSuchFileError;
+use crate::error::{NoSuchFileError, ReadFileError};
 
-pub fn read_file_utf8(path: &str) -> String
+pub fn read_file_utf8(path: &str) -> Result<String, ReadFileError>
 {
-    let path = Path::new(path);
-    let display = path.display();
+    let os_path = Path::new(path);
+    let display = os_path.display();
 
     // Open the path in read-only mode, returns `io::Result<File>`
     let mut file = match File::open(path) {
-        Err(why) => panic!("couldn't open {}: {}", display, why),
+        Err(why) => 
+        {
+            return Err
+            (
+                ReadFileError 
+                {
+                    why: format!("couldn't open: {}", why), 
+                    file: display.to_string()
+                }
+            )
+        },
         Ok(file) => file,
     };
 
     // Read the file contents into a string, returns `io::Result<usize>`
     let mut s = String::new();
     match file.read_to_string(&mut s) {
-        Err(why) => panic!("couldn't read {}: {}", display, why),
-        Ok(_) => s
+        Err(why) => 
+        {
+            Err(
+                ReadFileError
+                {
+                    why: format!("couldn't read: {}", why),
+                    file: display.to_string()
+                }
+            )
+        },
+        Ok(_) => Ok(s)
     }
 
 }
@@ -34,12 +53,22 @@ pub fn write_file(path: &str, data: &[u8])
     file.write_all(data).unwrap();
 }
 
-pub fn read_file_raw(path: &str) -> Vec<u8>
+pub fn read_file_raw(path: &str) -> Result<Vec<u8>, ReadFileError>
 {
     match std::fs::read(path)
     {
-        Err(why) => panic!("Couldn't read {}: {}", path, why),
-        Ok(data) => data
+        Err(why) => 
+        {
+            Err
+            (
+                ReadFileError
+                {
+                    why: format!("Couldn't read: {}", why),
+                    file: path.to_string()
+                }
+            )
+        },
+        Ok(data) => Ok(data)
     }
 }
 

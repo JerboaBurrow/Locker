@@ -116,7 +116,15 @@ fn main()
         }
     };
         
-    let rsa = build_rsa(pem.as_str(), &password.as_str());
+    let rsa = match build_rsa(pem.as_str(), &password.as_str())
+    {
+        Ok(v) => v,
+        Err(e) => 
+        {
+            println!("{}", e.why);
+            std::process::exit(1);
+        }
+    };
 
     match lkr_command
     {
