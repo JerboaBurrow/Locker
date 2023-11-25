@@ -19,10 +19,4 @@ jobs:
     - name: fuzzing
       run: source fuzz/run_fuzz.sh -c -t 120
 
-    - name: upload bundle
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage
-        path: index.html
-
                                   
