@@ -1,12 +1,14 @@
 use std::path::Path;
 use std::fs::File;
-use std::io::prelude::*;
 use std::fmt::Write as fmtWrite;
 use std::io::Write as ioWrite;
+use std::io::Read;
+use libflate::deflate::{Encoder, Decoder};
+
 
 use regex::Regex;
 
-use crate::error::{NoSuchFileError, ReadFileError};
+use crate::error::{NoSuchFileError, ReadFileError, CompressionError};
 
 pub fn read_file_utf8(path: &str) -> Result<String, ReadFileError>
 {
@@ -129,6 +131,53 @@ pub fn find_file_in_dir(pattern: Regex) -> Result<String, NoSuchFileError>
         Err(why) => 
         {
             Err(NoSuchFileError{why: format!("Error while reading directory: {}", why)})
+        }
+    }
+}
+
+pub fn compress(s: &str) -> Result<Vec<u8>, CompressionError>
+{
+    let mut encoder = Encoder::new(Vec::new());
+    
+    match encoder.write_all(s.as_bytes())
+    {
+        Ok(_) => (),
+        Err(e) => 
+        {
+            return Err(CompressionError { why: format!("Error writing to compressor: {}", e) })
+        }
+    };
+
+    match encoder.finish().into_result()
+    {
+        Ok(data) => Ok(data), 
+        Err(e) => 
+        {
+            Err(CompressionError { why: format!("Error finalising compressor: {}", e) })
+        }
+    }
+}
+
+pub fn decompress(bytes: Vec<u8>) -> Result<String, CompressionError>
+{
+    let mut decoder = Decoder::new(&bytes[..]);
+    let mut decoded_data = Vec::new();
+
+    match decoder.read_to_end(&mut decoded_data)
+    {
+        Ok(_) => (),
+        Err(e) => 
+        {
+            return Err(CompressionError { why: format!("Error decoding data: {}", e) })
+        }
+    }
+    
+    match std::str::from_utf8(&decoded_data)
+    {
+        Ok(s) => Ok(s.to_string()),
+        Err(e) => 
+        {
+            Err(CompressionError { why: format!("Decoded data is not utf8: {}", e) })
         }
     }
 }

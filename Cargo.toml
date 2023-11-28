@@ -21,6 +21,7 @@ serde_json = "1.0"
 rpassword = "7.3"
 semver = "1.0.20"
 regex = "1.10.2"
+libflate = "2"
 
 [profile.dev]
 opt-level = 0

@@ -115,3 +115,15 @@ impl fmt::Display for ArgumentError {
         write!(f, "While reading commandline arguments: {}", self.why)
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct CompressionError
+{
+    pub why: String
+}
+
+impl fmt::Display for CompressionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.why)
+    }
+}

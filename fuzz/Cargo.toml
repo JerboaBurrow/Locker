@@ -49,3 +49,9 @@ name = "fuzz_extract_arguments"
 path = "fuzz_targets/fuzz_extract_arguments.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "fuzz_compress_decompress"
+path = "fuzz_targets/fuzz_compress_decompress.rs"
+test = false
+doc = false
