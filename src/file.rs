@@ -25,11 +25,13 @@
 use crate::
 {
     crypto::{hash, encrypt, decrypt_string},
-    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning}, 
+    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning, compress, decompress, as_base64, from_base64}, 
     program_version,
     compatible,
-    error::{KeyCollisionError, KeyNonExistantError, ReadError, WriteError}
+    error::{KeyCollisionError, KeyNonExistantError, ReadError, WriteError}, version_compression_added, VERSION_REGEX
 };
+
+use regex::Regex;
 
 use semver::Version;
 
@@ -37,7 +39,11 @@ use openssl::sha::Sha256;
 
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Write};
+
+use std::fs::{self, File};
+
+use std::convert::{From, Into};
 
 use openssl::
 {
@@ -53,11 +59,45 @@ pub struct Entry
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Lkr0_1_0
+pub struct Lkr0_2_0
 {
     version: String,
     check_hash: String,
-    entries: Vec<Entry>
+    entries: Vec<Entry>,
+    keys: Vec<String>
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CompressedEntry 
+{
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    hash: Vec<u8>,
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    value: Vec<u8>
+}
+
+impl From<Entry> for CompressedEntry 
+{
+    fn from(uncompressed: Entry) -> Self
+    {
+        CompressedEntry 
+        { 
+            hash: read_bytes(uncompressed.hash), 
+            value: compress(uncompressed.value.as_bytes()).unwrap()
+        }
+    }
+}
+
+impl Into<Entry> for CompressedEntry
+{
+    fn into(self) -> Entry
+    {
+        Entry 
+        { 
+            hash: dump_bytes(&self.hash), 
+            value: decompress(self.value).unwrap()
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -65,8 +105,9 @@ pub struct Lkr
 {
     version: String,
     check_hash: String,
-    entries: Vec<Entry>,
-    keys: Vec<String>
+    entries: Vec<CompressedEntry>,
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    keys: Vec<u8>
 }
 
 pub struct Locker {
@@ -149,108 +190,124 @@ impl Locker
             None => {}
         }
 
-        let lkr: Lkr = match serde_json::from_str(&data)
+        let re = Regex::new(VERSION_REGEX).unwrap();
+        let file_version = match re.captures(&data)
         {
-            Ok(data) => {data},
-            Err(why) => 
-            {
-                return Err(ReadError{ why: format!("Error while loading lkr file {}: {}", path, why), file: path.to_string()})
-            }
+            Some(c) => Version::parse(c.iter().next().unwrap().unwrap().as_str()).unwrap(),
+            None => { return Err(ReadError { why: "No version in .lkr file".to_string(), file: path.to_string() })}
         };
 
-        let lkr_entries = lkr.entries;
-        let lkr_keys = lkr.keys;
+        compatible(file_version.clone());
 
-        let file_version = Version::parse(lkr.version.as_str()).unwrap();
-
-        if file_version != program_version()
+        let (lkr_entries, lkr_keys, lkr_check_hash) = if file_version >= version_compression_added()
         {
-            let compat_info = match compatible(program_version(), file_version.clone())
+            let lkr: Lkr = match serde_json::from_str(&data)
             {
-                true => "[compatible] ",
-                false => "[incompatible] "
+                Ok(data) => {data},
+                Err(why) => 
+                {
+                    return Err(ReadError{ why: format!("Error while loading lkr file {}: {}", path, why), file: path.to_string()})
+                }
             };
 
-            let msg = format!
-            (
-                "{}version mismatch: program {} lkr file: {}",
-                compat_info,
-                program_version(),
-                file_version
-            );
-
-            warning(&msg);
+            let lkr_entries: Vec<CompressedEntry> = lkr.entries;
+            let lkr_keys: Vec<String> = serde_json::from_str(&decompress(lkr.keys).unwrap()).unwrap();
+            
+            (lkr_entries, lkr_keys, lkr.check_hash)
         }
+        else 
+        {
+            let lkr: Lkr0_2_0 = match serde_json::from_str(&data)
+            {
+                Ok(data) => {data},
+                Err(why) => 
+                {
+                    return Err(ReadError{ why: format!("Error while loading lkr file {}: {}", path, why), file: path.to_string()})
+                }
+            };
+
+            let mut compressed: Vec<CompressedEntry> = Vec::new();
+
+            for entry in lkr.entries
+            {
+                compressed.push(entry.into())
+            }
+
+            (compressed, lkr.keys, lkr.check_hash)
+        };
 
         let mut check_hash: Sha256 = Sha256::new();
 
         for entry in lkr_entries
         {
+
+            check_hash.update(&entry.hash);
+            check_hash.update(&entry.value);
+
             match entry.hash.len()
             {
-                64 => {/*void*/},
+                32 => {/*void*/},
                 _ => 
                 {
-                    let msg = format!("found entry with hash value of incorrect size (256 bytes) in {}", path);
+                    let msg = format!("found entry with hash value of incorrect size in {}", path);
                     return Err(ReadError { why: msg, file:path.to_string() })
                 }
             };
 
-            let h: [u8; 32] = read_bytes(entry.hash.clone()).try_into().unwrap();
-            let v = read_bytes(entry.value.clone());
-
-            self.data.insert(h, v);
-
-            check_hash.update(entry.hash.as_bytes());
-            check_hash.update(entry.value.as_bytes());
+            self.data.insert(entry.hash.try_into().unwrap(), read_bytes(decompress(entry.value).unwrap()));
         }
 
         for key in lkr_keys
         {
-            let k = read_bytes(key.clone());
-            self.keys.push(k.clone());
+
             check_hash.update(key.as_bytes());
+
+            self.keys.push(read_bytes(key.clone()));
         }
 
-        if lkr.check_hash != dump_bytes(&check_hash.finish())
+        if lkr_check_hash != dump_bytes(&check_hash.finish())
         {
             warning(format!("Computed hash from {} does not match check hash in file, possible manipulation",path).as_str());
         }
         Ok(())
+
     }
 
     pub fn write(&self, path: &str) -> Result<(), WriteError>
     {
-        let mut data: Vec<Entry> = Vec::new();
+        let mut data: Vec<CompressedEntry> = Vec::new();
         let mut keys: Vec<String> = Vec::new();
         let mut check_hash: Sha256 = Sha256::new();
 
         for (hash, value) in &self.data 
         {
+
             let hash_string = dump_bytes(hash);
             let value_string = dump_bytes(value);
 
-            data.push(Entry{hash: hash_string.clone(), value: value_string.clone()});
-            check_hash.update(hash_string.as_bytes());
-            check_hash.update(value_string.as_bytes());
+            let compressed: CompressedEntry = Entry{hash: hash_string.clone(), value: value_string.clone()}.into();
+
+            check_hash.update(&compressed.hash);
+            check_hash.update(&compressed.value);
+
+            data.push(compressed);
+        
         }
 
         for key in &self.keys
         {
-            let key_string = dump_bytes(&key);
+            let key_string = dump_bytes(key);
 
             keys.push(key_string.clone());
             check_hash.update(key_string.as_bytes());
         }
 
-        let v = program_version();
-
         let lkr = Lkr
         {
-            version: v.to_string(), 
+            version: program_version().to_string(), 
             check_hash: dump_bytes(&check_hash.finish()), 
             entries: data,
-            keys
+            keys: compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap()
         };
 
         match serde_json::to_string_pretty(&lkr)
@@ -264,6 +321,7 @@ impl Locker
                 return Err(WriteError { why: format!("serde_json serialisation error: {}", why), file: path.to_string() })
             }
         }
+
         Ok(())
     }
 }

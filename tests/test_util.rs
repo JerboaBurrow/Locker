@@ -4,8 +4,10 @@ mod common;
 mod test_util
 {
     const TEST_STRING: &str = "hello";
+    const COMPRESS_STRING: &str = "This is a string that can be compressed. This is a string that can be compressed.";
 
-    use locker::util::{read_file_utf8, read_file_raw, write_file};
+    use locker::util::{read_file_utf8, read_file_raw, write_file, compress, decompress, dump_bytes};
+   
     #[test]
     fn test_read_uft8()
     {
@@ -62,5 +64,21 @@ mod test_util
     {
         let data = read_file_raw("tests/encrypted").unwrap();
         assert_eq!(data, TEST_BYTES);
+    }
+
+    #[test]
+    fn test_compress_decompress()
+    {
+        let compressed = compress(COMPRESS_STRING.as_bytes());
+        assert!(compressed.is_ok());
+
+        let compressed_string = compressed.unwrap();
+        assert!(compressed_string.len() < COMPRESS_STRING.as_bytes().len());
+
+        let decompressed = decompress(compressed_string);
+        assert!(decompressed.is_ok());
+        
+        let decompressed_string = decompressed.unwrap();
+        assert_eq!(decompressed_string, COMPRESS_STRING);
     }
 }
