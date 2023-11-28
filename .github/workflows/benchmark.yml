@@ -1,0 +1,24 @@
+on:
+  pull_request:
+
+name: Benchmark
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: setup rust stable
+      run: curl https://sh.rustup.rs -sSf | sh -s -- -y 
+
+    - name: build
+      run: cargo build --release
+
+    - name: benchmark
+      run: |
+        mkdir ~/bin && export PATH=$PATH:~/bin && cp target/release/locker ~/bin/
+        source tests/benchmark.sh -c
+
+                                  
