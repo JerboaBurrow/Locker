@@ -43,6 +43,8 @@ use std::{collections::HashMap, io::Write};
 
 use std::fs::{self, File};
 
+use std::convert::{From, Into};
+
 use openssl::
 {
     rsa::Rsa,
@@ -66,12 +68,44 @@ pub struct Lkr0_2_0
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct CompressedEntry 
+{
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    hash: Vec<u8>,
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    value: Vec<u8>
+}
+
+impl From<Entry> for CompressedEntry 
+{
+    fn from(uncompressed: Entry) -> Self
+    {
+        CompressedEntry 
+        { 
+            hash: read_bytes(uncompressed.hash), 
+            value: compress(uncompressed.value.as_bytes()).unwrap()
+        }
+    }
+}
+
+impl Into<Entry> for CompressedEntry
+{
+    fn into(self) -> Entry
+    {
+        Entry 
+        { 
+            hash: dump_bytes(&self.hash), 
+            value: decompress(self.value).unwrap()
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Lkr
 {
     version: String,
     check_hash: String,
-    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
-    entries: Vec<u8>,
+    entries: Vec<CompressedEntry>,
     #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
     keys: Vec<u8>
 }
@@ -176,7 +210,7 @@ impl Locker
                 }
             };
 
-            let lkr_entries: Vec<Entry> = serde_json::from_str(&decompress(lkr.entries).unwrap()).unwrap();
+            let lkr_entries: Vec<CompressedEntry> = lkr.entries;
             let lkr_keys: Vec<String> = serde_json::from_str(&decompress(lkr.keys).unwrap()).unwrap();
             
             (lkr_entries, lkr_keys, lkr.check_hash)
@@ -192,7 +226,14 @@ impl Locker
                 }
             };
 
-            (lkr.entries, lkr.keys, lkr.check_hash)
+            let mut compressed: Vec<CompressedEntry> = Vec::new();
+
+            for entry in lkr.entries
+            {
+                compressed.push(entry.into())
+            }
+
+            (compressed, lkr.keys, lkr.check_hash)
         };
 
         let mut check_hash: Sha256 = Sha256::new();
@@ -200,12 +241,12 @@ impl Locker
         for entry in lkr_entries
         {
 
-            check_hash.update(entry.hash.as_bytes());
-            check_hash.update(entry.value.as_bytes());
+            check_hash.update(&entry.hash);
+            check_hash.update(&entry.value);
 
             match entry.hash.len()
             {
-                64 => {/*void*/},
+                32 => {/*void*/},
                 _ => 
                 {
                     let msg = format!("found entry with hash value of incorrect size in {}", path);
@@ -213,10 +254,7 @@ impl Locker
                 }
             };
 
-            let h: [u8; 32] = read_bytes(entry.hash.clone()).try_into().unwrap();
-            let v = read_bytes(entry.value.clone());
-
-            self.data.insert(h, v);
+            self.data.insert(entry.hash.try_into().unwrap(), read_bytes(decompress(entry.value).unwrap()));
         }
 
         for key in lkr_keys
@@ -237,7 +275,7 @@ impl Locker
 
     pub fn write(&self, path: &str) -> Result<(), WriteError>
     {
-        let mut data: Vec<Entry> = Vec::new();
+        let mut data: Vec<CompressedEntry> = Vec::new();
         let mut keys: Vec<String> = Vec::new();
         let mut check_hash: Sha256 = Sha256::new();
 
@@ -247,9 +285,13 @@ impl Locker
             let hash_string = dump_bytes(hash);
             let value_string = dump_bytes(value);
 
-            data.push(Entry{hash: hash_string.clone(), value: value_string.clone()});
-            check_hash.update(hash_string.as_bytes());
-            check_hash.update(value_string.as_bytes());
+            let compressed: CompressedEntry = Entry{hash: hash_string.clone(), value: value_string.clone()}.into();
+
+            check_hash.update(&compressed.hash);
+            check_hash.update(&compressed.value);
+
+            data.push(compressed);
+        
         }
 
         for key in &self.keys
@@ -264,7 +306,7 @@ impl Locker
         {
             version: program_version().to_string(), 
             check_hash: dump_bytes(&check_hash.finish()), 
-            entries: compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap(),
+            entries: data,
             keys: compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap()
         };
 
