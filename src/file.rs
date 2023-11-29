@@ -57,14 +57,6 @@ pub struct Entry
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Lkr0_1_0
-{
-    version: String,
-    check_hash: String,
-    entries: Vec<Entry>
-}
-
-#[derive(Serialize, Deserialize)]
 pub struct Lkr0_2_0
 {
     version: String,
@@ -171,6 +163,8 @@ impl Locker
             None => { return Err(ReadError { why: "No version in .lkr file".to_string(), file: path.to_string() })}
         };
 
+        compatible(file_version.clone());
+
         let (lkr_entries, lkr_keys, lkr_check_hash) = if file_version >= version_compression_added()
         {
             let lkr: Lkr = match serde_json::from_str(&data)
@@ -200,26 +194,6 @@ impl Locker
 
             (lkr.entries, lkr.keys, lkr.check_hash)
         };
-
-        
-        if file_version != program_version()
-        {
-            let compat_info = match compatible(program_version(), file_version.clone())
-            {
-                true => "[compatible] ",
-                false => "[incompatible] "
-            };
-
-            let msg = format!
-            (
-                "{}version mismatch: program {} lkr file: {}",
-                compat_info,
-                program_version(),
-                file_version
-            );
-
-            warning(&msg);
-        }
 
         let mut check_hash: Sha256 = Sha256::new();
 
@@ -286,20 +260,12 @@ impl Locker
             check_hash.update(key_string.as_bytes());
         }
 
-        let v = program_version();
-
-        let se_data = compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap();
-        let se_keys = compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap();
-
-        println!("compressed/raw: {}/{}", compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap().len(), serde_json::to_string(&data).unwrap().as_bytes().len());
-        println!("compressed/raw: {}/{}", compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap().len(), serde_json::to_string(&keys).unwrap().as_bytes().len());
-
         let lkr = Lkr
         {
-            version: v.to_string(), 
+            version: program_version().to_string(), 
             check_hash: dump_bytes(&check_hash.finish()), 
-            entries: se_data,
-            keys: se_keys
+            entries: compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap(),
+            keys: compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap()
         };
 
         match serde_json::to_string_pretty(&lkr)

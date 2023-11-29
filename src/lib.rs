@@ -12,6 +12,7 @@ const PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 const VERSION_REGEX: &str = r"(\d.){2}\d+";
 
 use semver::{BuildMetadata, Prerelease, Version};
+use util::warning;
 
 // making a const Version, &'static or other stuff went to hell
 fn program_version() -> Version 
@@ -38,35 +39,49 @@ fn version_compression_added() -> Version
     }
 }
 
-pub fn compatible(this: Version, with: Version) -> bool
+pub fn compatible(file_version: Version)
 {
-    match this.major > 0
-    {
-        true => {true},
-        false => 
-        {
-            if this.minor > with.minor
-            {
-                return false
-            }
+    
+    let program = program_version();
+    let initial_version = Version::parse("0.1.0").unwrap();
 
-            let initial_version = Version::parse("0.1.0").unwrap();
-            return if this < initial_version || with < initial_version
+    if file_version != program_version()
+    {
+        let compat = match program.major > 0
+        {
+            true => {true},
+            false => 
             {
-                false
+                if program.minor < file_version.minor
+                {
+                    false
+                }
+                else if file_version == initial_version && program != initial_version
+                {
+                    false
+                }
+                else
+                {
+                    true
+                }
             }
-            else if this > with && with == initial_version
-            {
-                false 
-            }
-            else if with > this && this == initial_version
-            {
-                false 
-            }
-            else
-            {
-                true
-            }
-        }
+        };
+
+        let compat_info = match compat
+        {
+            true => "[compatible] ",
+            false => "[incompatible] "
+        };
+
+        let msg = format!
+        (
+            "{}version mismatch: program {} lkr file: {}",
+            compat_info,
+            program_version(),
+            file_version
+        );
+
+        warning(&msg);
     }
+
 }
