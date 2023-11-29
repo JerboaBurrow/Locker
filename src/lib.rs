@@ -9,6 +9,8 @@ const MAJOR: &str = env!("CARGO_PKG_VERSION_MAJOR");
 const MINOR: &str = env!("CARGO_PKG_VERSION_MINOR");
 const PATCH: &str = env!("CARGO_PKG_VERSION_PATCH");
 
+const VERSION_REGEX: &str = r"(\d.){2}\d+";
+
 use semver::{BuildMetadata, Prerelease, Version};
 
 // making a const Version, &'static or other stuff went to hell
@@ -21,6 +23,18 @@ fn program_version() -> Version
         patch: PATCH.parse().unwrap(),
         pre: Prerelease::EMPTY,
         build: BuildMetadata::EMPTY
+    }
+}
+
+fn version_compression_added() -> Version
+{
+    Version 
+    { 
+        major: 0, 
+        minor: 3, 
+        patch: 0, 
+        pre: Prerelease::EMPTY, 
+        build: BuildMetadata::EMPTY 
     }
 }
 

@@ -25,11 +25,13 @@
 use crate::
 {
     crypto::{hash, encrypt, decrypt_string},
-    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning}, 
+    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning, compress, decompress}, 
     program_version,
     compatible,
-    error::{KeyCollisionError, KeyNonExistantError, ReadError, WriteError}
+    error::{KeyCollisionError, KeyNonExistantError, ReadError, WriteError}, version_compression_added, VERSION_REGEX
 };
+
+use regex::Regex;
 
 use semver::Version;
 
@@ -61,12 +63,21 @@ pub struct Lkr0_1_0
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Lkr
+pub struct Lkr0_2_0
 {
     version: String,
     check_hash: String,
     entries: Vec<Entry>,
     keys: Vec<String>
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Lkr
+{
+    version: String,
+    check_hash: String,
+    entries: String,
+    keys: String
 }
 
 pub struct Locker {
@@ -149,20 +160,44 @@ impl Locker
             None => {}
         }
 
-        let lkr: Lkr = match serde_json::from_str(&data)
+        let re = Regex::new(VERSION_REGEX).unwrap();
+        let file_version = match re.captures(&data)
         {
-            Ok(data) => {data},
-            Err(why) => 
-            {
-                return Err(ReadError{ why: format!("Error while loading lkr file {}: {}", path, why), file: path.to_string()})
-            }
+            Some(c) => Version::parse(c.iter().next().unwrap().unwrap().as_str()).unwrap(),
+            None => { return Err(ReadError { why: "No version in .lkr file".to_string(), file: path.to_string() })}
         };
 
-        let lkr_entries = lkr.entries;
-        let lkr_keys = lkr.keys;
+        let (lkr_entries, lkr_keys, lkr_check_hash) = if file_version >= version_compression_added()
+        {
+            let lkr: Lkr = match serde_json::from_str(&data)
+            {
+                Ok(data) => {data},
+                Err(why) => 
+                {
+                    return Err(ReadError{ why: format!("Error while loading lkr file {}: {}", path, why), file: path.to_string()})
+                }
+            };
 
-        let file_version = Version::parse(lkr.version.as_str()).unwrap();
+            let lkr_entries: Vec<Entry> = serde_json::from_str(&decompress(read_bytes(lkr.entries)).unwrap()).unwrap();
+            let lkr_keys: Vec<String> = serde_json::from_str(&decompress(read_bytes(lkr.keys)).unwrap()).unwrap();
+            
+            (lkr_entries, lkr_keys, lkr.check_hash)
+        }
+        else 
+        {
+            let lkr: Lkr0_2_0 = match serde_json::from_str(&data)
+            {
+                Ok(data) => {data},
+                Err(why) => 
+                {
+                    return Err(ReadError{ why: format!("Error while loading lkr file {}: {}", path, why), file: path.to_string()})
+                }
+            };
 
+            (lkr.entries, lkr.keys, lkr.check_hash)
+        };
+
+        
         if file_version != program_version()
         {
             let compat_info = match compatible(program_version(), file_version.clone())
@@ -186,12 +221,16 @@ impl Locker
 
         for entry in lkr_entries
         {
+
+            check_hash.update(entry.hash.as_bytes());
+            check_hash.update(entry.value.as_bytes());
+
             match entry.hash.len()
             {
                 64 => {/*void*/},
                 _ => 
                 {
-                    let msg = format!("found entry with hash value of incorrect size (256 bytes) in {}", path);
+                    let msg = format!("found entry with hash value of incorrect size in {}", path);
                     return Err(ReadError { why: msg, file:path.to_string() })
                 }
             };
@@ -200,23 +239,22 @@ impl Locker
             let v = read_bytes(entry.value.clone());
 
             self.data.insert(h, v);
-
-            check_hash.update(entry.hash.as_bytes());
-            check_hash.update(entry.value.as_bytes());
         }
 
         for key in lkr_keys
         {
-            let k = read_bytes(key.clone());
-            self.keys.push(k.clone());
+
             check_hash.update(key.as_bytes());
+
+            self.keys.push(read_bytes(key.clone()));
         }
 
-        if lkr.check_hash != dump_bytes(&check_hash.finish())
+        if lkr_check_hash != dump_bytes(&check_hash.finish())
         {
             warning(format!("Computed hash from {} does not match check hash in file, possible manipulation",path).as_str());
         }
         Ok(())
+
     }
 
     pub fn write(&self, path: &str) -> Result<(), WriteError>
@@ -227,6 +265,7 @@ impl Locker
 
         for (hash, value) in &self.data 
         {
+
             let hash_string = dump_bytes(hash);
             let value_string = dump_bytes(value);
 
@@ -237,7 +276,7 @@ impl Locker
 
         for key in &self.keys
         {
-            let key_string = dump_bytes(&key);
+            let key_string = dump_bytes(key);
 
             keys.push(key_string.clone());
             check_hash.update(key_string.as_bytes());
@@ -245,12 +284,17 @@ impl Locker
 
         let v = program_version();
 
+        let se_data = dump_bytes(&compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap());
+        let se_keys = dump_bytes(&compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap());
+
+        //println!("compressed/raw: {}/{}, {}", se_data.len(), dump_bytes(serde_json::to_string(&data).unwrap().as_bytes()).len(), serde_json::to_string(&data).unwrap());
+
         let lkr = Lkr
         {
             version: v.to_string(), 
             check_hash: dump_bytes(&check_hash.finish()), 
-            entries: data,
-            keys
+            entries: se_data,
+            keys: se_keys
         };
 
         match serde_json::to_string_pretty(&lkr)

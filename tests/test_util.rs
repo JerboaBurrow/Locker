@@ -69,7 +69,7 @@ mod test_util
     #[test]
     fn test_compress_decompress()
     {
-        let compressed = compress(COMPRESS_STRING);
+        let compressed = compress(COMPRESS_STRING.as_bytes());
         assert!(compressed.is_ok());
 
         let compressed_string = compressed.unwrap();

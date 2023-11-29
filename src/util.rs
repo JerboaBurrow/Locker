@@ -135,11 +135,11 @@ pub fn find_file_in_dir(pattern: Regex) -> Result<String, NoSuchFileError>
     }
 }
 
-pub fn compress(s: &str) -> Result<Vec<u8>, CompressionError>
+pub fn compress(bytes: &[u8]) -> Result<Vec<u8>, CompressionError>
 {
     let mut encoder = Encoder::new(Vec::new());
     
-    match encoder.write_all(s.as_bytes())
+    match encoder.write_all(&bytes)
     {
         Ok(_) => (),
         Err(e) => 
