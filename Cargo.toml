@@ -22,6 +22,7 @@ rpassword = "7.3"
 semver = "1.0.20"
 regex = "1.10.2"
 libflate = "2"
+base64 = "0.21.5"
 
 [profile.dev]
 opt-level = 0

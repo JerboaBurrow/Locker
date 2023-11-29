@@ -25,7 +25,7 @@
 use crate::
 {
     crypto::{hash, encrypt, decrypt_string},
-    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning, compress, decompress}, 
+    util::{write_file, read_file_utf8, dump_bytes, read_bytes, warning, compress, decompress, as_base64, from_base64}, 
     program_version,
     compatible,
     error::{KeyCollisionError, KeyNonExistantError, ReadError, WriteError}, version_compression_added, VERSION_REGEX
@@ -39,7 +39,9 @@ use openssl::sha::Sha256;
 
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Write};
+
+use std::fs::{self, File};
 
 use openssl::
 {
@@ -76,8 +78,10 @@ pub struct Lkr
 {
     version: String,
     check_hash: String,
-    entries: String,
-    keys: String
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    entries: Vec<u8>,
+    #[serde(serialize_with = "as_base64", deserialize_with = "from_base64")]
+    keys: Vec<u8>
 }
 
 pub struct Locker {
@@ -178,8 +182,8 @@ impl Locker
                 }
             };
 
-            let lkr_entries: Vec<Entry> = serde_json::from_str(&decompress(read_bytes(lkr.entries)).unwrap()).unwrap();
-            let lkr_keys: Vec<String> = serde_json::from_str(&decompress(read_bytes(lkr.keys)).unwrap()).unwrap();
+            let lkr_entries: Vec<Entry> = serde_json::from_str(&decompress(lkr.entries).unwrap()).unwrap();
+            let lkr_keys: Vec<String> = serde_json::from_str(&decompress(lkr.keys).unwrap()).unwrap();
             
             (lkr_entries, lkr_keys, lkr.check_hash)
         }
@@ -284,10 +288,11 @@ impl Locker
 
         let v = program_version();
 
-        let se_data = dump_bytes(&compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap());
-        let se_keys = dump_bytes(&compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap());
+        let se_data = compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap();
+        let se_keys = compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap();
 
-        //println!("compressed/raw: {}/{}, {}", se_data.len(), dump_bytes(serde_json::to_string(&data).unwrap().as_bytes()).len(), serde_json::to_string(&data).unwrap());
+        println!("compressed/raw: {}/{}", compress(serde_json::to_string(&data).unwrap().as_bytes()).unwrap().len(), serde_json::to_string(&data).unwrap().as_bytes().len());
+        println!("compressed/raw: {}/{}", compress(serde_json::to_string(&keys).unwrap().as_bytes()).unwrap().len(), serde_json::to_string(&keys).unwrap().as_bytes().len());
 
         let lkr = Lkr
         {
@@ -308,6 +313,7 @@ impl Locker
                 return Err(WriteError { why: format!("serde_json serialisation error: {}", why), file: path.to_string() })
             }
         }
+
         Ok(())
     }
 }
