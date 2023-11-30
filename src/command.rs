@@ -12,29 +12,38 @@ use openssl::
     pkey::Private
 };
 
-const COMMAND_LIST: &[&str] = &["show_keys"];
-
-pub fn handle_command(lkr_path: &str, rsa: Rsa<Private>, command: &str) -> Result<CommandResult, CommandError>
+pub enum CommandCode
 {
-    match command
+    ShowKeys
+}
+
+pub struct Command 
+{
+    code: CommandCode,
+    argument: Option<String>
+}
+
+pub fn extract_command(args: &mut Vec<String>) -> Result<Option<Command>, CommandError>
+{
+    if args.iter().any(|x| x == "-show_keys")
     {
-        "show_keys" => 
+        let i = args.iter().position(|x| x == "--show_keys").unwrap();
+        args.remove(i);
+        return Ok(Some(Command { code: CommandCode::ShowKeys, argument: None}));
+    }
+
+    Ok(None)
+}
+
+pub fn handle_command(lkr_path: &str, rsa: Rsa<Private>, command: Command) -> Result<CommandResult, CommandError>
+{
+    match command.code
+    {
+        CommandCode::ShowKeys => 
         {
             show_keys(lkr_path, rsa)
         },
         _ => {Ok(CommandResult::UNKNOWN)}
-    }
-}
-
-pub fn is_command(command: String) -> bool
-{
-    if COMMAND_LIST.contains(&command.as_str())
-    {
-        true
-    }
-    else 
-    {
-        false    
     }
 }
 

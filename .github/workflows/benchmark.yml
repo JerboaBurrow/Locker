@@ -4,7 +4,7 @@ on:
 name: Benchmark
 
 jobs:
-  fuzz:
+  benchmark:
     runs-on: ubuntu-latest
 
     steps:

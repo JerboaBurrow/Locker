@@ -6,7 +6,7 @@ use locker::
     crypto::build_rsa,
     file::Locker,
     error::CommandResult, 
-    command::handle_command,
+    command::{extract_command, handle_command, Command},
     arguments::{extract_arguments, extract_lkr, extract_pass, extract_pem}
 };
 
@@ -91,7 +91,17 @@ fn main()
     // strip program argument
     args.remove(0);
 
-    let (lkr_path, lkr_command, lkr_entry, lkr_data) = match extract_arguments(args)
+    let lkr_command = match extract_command(&mut args)
+    {
+        Ok(cmd) => cmd,
+        Err(e) => 
+        {
+            println!("Error extracting commands: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let (lkr_path, lkr_entry, lkr_data) = match extract_arguments(args)
     {
         Ok(args) => args,
         Err(e) =>
@@ -141,7 +151,7 @@ fn main()
     {
         Some(command) =>
         {
-            match handle_command(path.as_str(), rsa, &command)
+            match handle_command(path.as_str(), rsa, command)
             {
                 Ok(status) => 
                 {
