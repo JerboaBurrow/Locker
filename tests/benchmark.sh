@@ -51,7 +51,7 @@ for key in {1..1024}; do
 
 done
 
-echo "${GREEN}.lkr size for 1024 keys: $(du -sh t.lkr)${NC}"
+echo -e "${GREEN}.lkr size for 1024 keys: $(du -sh t.lkr)${NC}"
 
 gnuplot -e 'set term dumb 59 26; set xlabel "Number of keys"; set ylabel "Milliseconds"; plot "insert" title "Insert, milliseconds" pt "*";'
 
