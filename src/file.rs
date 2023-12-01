@@ -120,6 +120,13 @@ pub struct Locker {
     keys: Vec<Vec<u8>>
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct EntryPlainText
+{
+    pub key: String,
+    pub value: String
+} 
+
 impl Locker 
 {
 

@@ -1,7 +1,7 @@
 use crate::
 {
     error::{CommandError, CommandResult},
-    file::Locker, crypto::{generate_key, build_rsa}, arguments::extract_pass
+    file::{Locker, EntryPlainText}, crypto::{generate_key, build_rsa}, arguments::extract_pass, util::write_file
 };
 
 use std::path::Path;
@@ -18,7 +18,8 @@ pub enum CommandCode
     ShowKeys,
     GenKey,
     ReKey,
-    Export
+    Export,
+    Import
 }
 
 #[derive(Debug, Clone)]
@@ -37,6 +38,58 @@ pub fn extract_command(args: &mut Vec<String>) -> Result<Option<Command>, Comman
         let i = args.iter().position(|x| x == "-show_keys").unwrap();
         args.remove(i);
         return Ok(Some(Command { code: CommandCode::ShowKeys, argument: None, data: None}));
+    }
+
+    if args.iter().any(|x| x == "--export")
+    {
+        let i = args.iter().position(|x| x == "--export").unwrap();
+
+        if i+1 < args.len()
+        {
+            let s = args[i+1].parse::<String>().unwrap();
+            if s.find("-").is_none()
+            {
+                args.remove(i);   
+                args.remove(i);
+                return Ok(Some(Command { code: CommandCode::Export, argument: Some(s), data: None }));
+            }
+            else 
+            {
+                args.remove(i);
+                return Ok(Some(Command { code: CommandCode::Export, argument: None, data: None}));
+            }
+        }
+        else
+        {
+            args.remove(i);
+            return Ok(Some(Command { code: CommandCode::Export, argument: None, data: None }));
+        }
+    }
+
+    if args.iter().any(|x| x == "--import")
+    {
+        let i = args.iter().position(|x| x == "--import").unwrap();
+
+        if i+1 < args.len()
+        {
+            let s = args[i+1].parse::<String>().unwrap();
+            if s.find("-").is_none()
+            {
+                args.remove(i);   
+                args.remove(i);
+                return Ok(Some(Command { code: CommandCode::Import, argument: Some(s), data: None }));
+            }
+            else 
+            {
+                args.remove(i);
+                return Ok(Some(Command { code: CommandCode::Import, argument: None, data: None}));
+            }
+        }
+        else
+        {
+            args.remove(i);
+            return Ok(Some(Command { code: CommandCode::Import, argument: None, data: None }));
+        }
     }
 
     if args.iter().any(|x| x == "--gen_key")
@@ -147,8 +200,68 @@ pub fn handle_command(lkr_path: &str, rsa: Rsa<Private>, command: Command) -> Re
         {
             re_key(lkr_path, rsa, command.argument, command.data)
         },
+        CommandCode::Export =>
+        {
+            export(lkr_path, rsa, command.argument)
+        },
+        CommandCode::Import =>
+        {
+            import(lkr_path, rsa, command.argument)
+        }
         _ => {Ok(CommandResult::NOTHING_TO_DO)}
     }
+}
+
+fn export(lkr_path: &str, rsa: Rsa<Private>, path: Option<String>) -> Result<CommandResult, CommandError>
+{
+    if !Path::new(lkr_path).exists()
+    {
+        return Err(CommandError { why: format!("show_keys, lkr file {} does not exist", lkr_path) });
+    }
+
+    let mut lkr = Locker::new();
+
+    match lkr.read(&lkr_path)
+    {
+        Ok(_) => {},
+        Err(why) => 
+        {
+            return Err(CommandError{why: format!("{}", why)})
+        }
+    }
+
+    let mut plaintext: Vec<EntryPlainText> = Vec::new();
+
+    for key in lkr.get_keys(rsa.clone())
+    {
+        plaintext.push(EntryPlainText{ key: key.clone(), value: lkr.get(&key, rsa.clone()).unwrap()});
+    }
+
+    let export_path = match path 
+    {
+        Some(p) => p,
+        None => { "exported".to_string() }
+    };
+
+    match serde_json::to_string_pretty(&plaintext)
+    {
+        Ok(se) => 
+        {
+            write_file(&export_path, se.as_bytes())
+        },
+        Err(why) => 
+        {
+            return Err(CommandError { why: format!("serde_json serialisation error: {}", why)})
+        }
+    }
+
+    Ok(CommandResult::OK)
+    
+}
+
+fn import(lkr_path: &str, rsa: Rsa<Private>, path: Option<String>) -> Result<CommandResult, CommandError>
+{
+    Ok(CommandResult::OK)
 }
 
 fn re_key(lkr_path: &str, old_rsa: Rsa<Private>, path: Option<String>, pass: Option<String>) -> Result<CommandResult, CommandError>
