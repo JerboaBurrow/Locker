@@ -2,14 +2,45 @@ use openssl::
 {
     rsa::{Rsa, Padding},
     pkey::Private,
-    sha::Sha256
+    sha::Sha256, symm::Cipher
 };
 
 use crate::
 {
-    util::{read_file_utf8, dump_bytes},
+    util::{read_file_utf8, dump_bytes, write_file},
     error::RSAError
 };
+
+pub fn generate_key(path: &str, pass: Option<String>) -> Result<(), RSAError>
+{
+    let rsa = match Rsa::generate(4096)
+    {
+        Ok(k) => k,
+        Err(e) => { return Err(RSAError { why: format!("While generating RSA key: {}", e)}); }
+    };
+
+    let pass = match pass 
+    {
+        Some(s) => s,
+        None => 
+        {
+            rpassword::prompt_password
+            (
+                format!("Passphrase for new key: ")
+            ).unwrap()
+        }
+    };
+
+    let pem = match rsa.private_key_to_pem_passphrase(Cipher::aes_256_cbc(), pass.as_bytes())
+    {
+        Ok(pem) => pem,
+        Err(e) => { return Err(RSAError { why: format!("While building encrypted PEM: {}", e) }); }
+    };
+
+    write_file(path, &pem);
+
+    Ok(())
+}
 
 pub fn build_rsa(path: &str, pass: &str) -> Result<Rsa<Private>, RSAError>
 {

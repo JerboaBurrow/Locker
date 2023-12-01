@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::{process::exit, clone};
 use std::path::Path;
 
 use locker::
@@ -6,7 +6,7 @@ use locker::
     crypto::build_rsa,
     file::Locker,
     error::CommandResult, 
-    command::{extract_command, handle_command, Command},
+    command::{extract_command, handle_command, Command, handle_free_command},
     arguments::{extract_arguments, extract_lkr, extract_pass, extract_pem}
 };
 
@@ -74,18 +74,6 @@ fn main()
         overwrite = true;
     }
 
-    let pem = match extract_pem(&mut args)
-    {
-        Ok(p) => p,
-        Err(e) => 
-        {
-            println!("Could not find PEM: {}", e);
-            std::process::exit(1);
-        }
-    };
-
-    let pass: Option<String> = extract_pass(&mut args);
-
     let mut lkr: Locker = Locker::new();
 
     // strip program argument
@@ -100,6 +88,41 @@ fn main()
             std::process::exit(1);
         }
     };
+
+    match lkr_command.clone()
+    {
+        Some(command) => 
+        {
+            match handle_free_command(command)
+            {
+                Ok(status) => 
+                {
+                    match status 
+                    {
+                        CommandResult::OK => {exit(0)},
+                        CommandResult::NOTHING_TO_DO => {}
+                    }
+                }
+                Err(why) => 
+                {
+                    println!("{}", why); exit(1);
+                }
+            }
+        },
+        None => {}
+    }
+
+    let pem = match extract_pem(&mut args)
+    {
+        Ok(p) => p,
+        Err(e) => 
+        {
+            println!("Could not find PEM: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let pass: Option<String> = extract_pass(&mut args);
 
     let (lkr_path, lkr_entry, lkr_data) = match extract_arguments(args)
     {
@@ -158,7 +181,7 @@ fn main()
                     match status 
                     {
                         CommandResult::OK => {exit(0)},
-                        CommandResult::UNKNOWN => {}
+                        CommandResult::NOTHING_TO_DO => {}
                     }
                 }
                 Err(why) => 

@@ -52,13 +52,7 @@ pub fn extract_pem(args: &mut Vec<String>) -> Result<String, NoSuchFileError>
         Ok(name) => Ok(name),
         Err(why) => 
         {
-            Err
-            (
-                NoSuchFileError
-                {
-                    why: format!("While detecting PEM: {}", why)
-                }
-            )
+            Err(why)
         }
     }
 }
