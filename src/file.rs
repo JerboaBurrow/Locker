@@ -141,6 +141,11 @@ impl Locker
         self.data.contains_key(&h)
     }
 
+    pub fn index_of(&self, key: &str) -> Option<usize>
+    {
+        self.keys.iter().position(|x| x == &hash(key).to_vec())
+    }
+
     pub fn insert(&mut self, key: &str, value: &str, rsa: Rsa<Private>, overwrite: bool) -> Result<(), KeyCollisionError>
     {
         let contains_key = self.contains(key);
@@ -154,6 +159,24 @@ impl Locker
             let h = hash(key);
             self.data.insert(h, encrypt(rsa, value.as_bytes()));
             Ok(())
+        }
+    }
+
+    pub fn delete(&mut self, key: &str) -> Result<(), KeyNonExistantError>
+    {
+        match self.contains(key)
+        {
+            true => 
+            {
+                let index = self.index_of(key).unwrap();
+                self.data.remove(&hash(&key));
+                self.keys.remove(index);
+                Ok(())
+            },
+            false => 
+            {
+                Err(KeyNonExistantError { key: format!("no key to delete: {}", key) })
+            }
         }
     }
 
