@@ -184,7 +184,7 @@ pub fn handle_free_command(command: Command) -> Result<CommandResult, CommandErr
                 None => { gen_key(command.argument, None) }
             }
         },
-        _ => {Ok(CommandResult::NOTHING_TO_DO)}
+        _ => {Ok(CommandResult::NothingToDo)}
     }
 }
 
@@ -208,7 +208,7 @@ pub fn handle_command(lkr_path: &str, rsa: Rsa<Private>, command: Command) -> Re
         {
             import(lkr_path, rsa, command.argument)
         }
-        _ => {Ok(CommandResult::NOTHING_TO_DO)}
+        _ => {Ok(CommandResult::NothingToDo)}
     }
 }
 

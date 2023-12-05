@@ -15,7 +15,7 @@ use semver::{BuildMetadata, Prerelease, Version};
 use util::warning;
 
 // making a const Version, &'static or other stuff went to hell
-fn program_version() -> Version 
+pub fn program_version() -> Version 
 {
     Version
     {
