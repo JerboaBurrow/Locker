@@ -51,6 +51,8 @@ Locker general usage:
 
     -o               overwrite a key
 
+    -d               delete a key
+
     --f lkr          path to .lkr file
 
     -show_keys       print all keys in .lkr file

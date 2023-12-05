@@ -272,6 +272,16 @@ fn main()
                     }
                 }
 
+                match lkr.delete(&entry, rsa)
+                {
+                    Ok(_) => (),
+                    Err(e) => 
+                    {
+                        println!("Not key to delete: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+
                 match lkr.write(path.as_str())
                 {
                     Ok(_) => {},
