@@ -39,7 +39,7 @@ use openssl::sha::Sha256;
 
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use std::convert::{From, Into};
 
@@ -119,6 +119,13 @@ pub struct Locker {
     data: HashMap<[u8; 32], Vec<u8>>,
     keys: Vec<Vec<u8>>
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct EntryPlainText
+{
+    pub key: String,
+    pub value: String
+} 
 
 impl Locker 
 {
@@ -282,6 +289,16 @@ impl Locker
 
     pub fn write(&self, path: &str) -> Result<(), WriteError>
     {
+
+        if Path::new(path).exists()
+        {
+            match std::fs::copy(path, format!("{}.bk",path))
+            {
+                Ok(_) => {},
+                Err(why) => {return Err(WriteError{ why: format!("Error when backing up lkr file: {}", why), file: path.to_string()})}
+            }
+        }
+
         let mut data: Vec<Entry> = Vec::new();
         let mut keys: Vec<Key> = Vec::new();
         let mut check_hash: Sha256 = Sha256::new();

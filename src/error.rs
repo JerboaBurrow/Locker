@@ -58,7 +58,7 @@ pub struct CommandError
 
 pub enum CommandResult {
     OK,
-    UNKNOWN
+    NOTHING_TO_DO
 }
 
 impl fmt::Display for CommandError {
