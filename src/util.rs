@@ -5,7 +5,7 @@ use std::io::Write as ioWrite;
 use std::io::Read;
 use libflate::deflate::{Encoder, Decoder};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serializer};
 
 use base64::{Engine as _, engine::general_purpose};
 

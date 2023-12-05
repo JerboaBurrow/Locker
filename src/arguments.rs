@@ -2,7 +2,7 @@ use regex::Regex;
 
 use crate::
 {
-    util::find_file_in_dir, 
+    util::{find_file_in_dir, warning}, 
     error::{NoSuchFileError, ArgumentError}
 };
 
@@ -95,7 +95,15 @@ pub fn extract_arguments(args: Vec<String>) -> Result<(Option<String>, Option<St
 
         let arg = args_to_parse.get(index).unwrap().clone();
 
-        index += 1;
+        if arg.starts_with("-") || arg.starts_with("--")
+        {
+            warning(format!("Unhandled command: {}", arg).as_str());
+            args_to_parse.remove(index);
+        }
+        else 
+        {
+            index += 1;    
+        }
     }
 
     if args_to_parse.len() >= 1
