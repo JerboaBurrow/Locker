@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::{process::exit, clone};
 use std::path::Path;
 
 use locker::
@@ -6,7 +6,7 @@ use locker::
     crypto::build_rsa,
     file::Locker,
     error::CommandResult, 
-    command::handle_command,
+    command::{extract_command, handle_command, Command, handle_free_command},
     arguments::{extract_arguments, extract_lkr, extract_pass, extract_pem}
 };
 
@@ -74,6 +74,44 @@ fn main()
         overwrite = true;
     }
 
+    let mut lkr: Locker = Locker::new();
+
+    // strip program argument
+    args.remove(0);
+
+    let lkr_command = match extract_command(&mut args)
+    {
+        Ok(cmd) => cmd,
+        Err(e) => 
+        {
+            println!("Error extracting commands: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    match lkr_command.clone()
+    {
+        Some(command) => 
+        {
+            match handle_free_command(command)
+            {
+                Ok(status) => 
+                {
+                    match status 
+                    {
+                        CommandResult::OK => {exit(0)},
+                        CommandResult::NOTHING_TO_DO => {}
+                    }
+                }
+                Err(why) => 
+                {
+                    println!("{}", why); exit(1);
+                }
+            }
+        },
+        None => {}
+    }
+
     let pem = match extract_pem(&mut args)
     {
         Ok(p) => p,
@@ -86,12 +124,7 @@ fn main()
 
     let pass: Option<String> = extract_pass(&mut args);
 
-    let mut lkr: Locker = Locker::new();
-
-    // strip program argument
-    args.remove(0);
-
-    let (lkr_path, lkr_command, lkr_entry, lkr_data) = match extract_arguments(args)
+    let (lkr_path, lkr_entry, lkr_data) = match extract_arguments(args)
     {
         Ok(args) => args,
         Err(e) =>
@@ -141,14 +174,14 @@ fn main()
     {
         Some(command) =>
         {
-            match handle_command(path.as_str(), rsa, &command)
+            match handle_command(path.as_str(), rsa, command)
             {
                 Ok(status) => 
                 {
                     match status 
                     {
                         CommandResult::OK => {exit(0)},
-                        CommandResult::UNKNOWN => {}
+                        CommandResult::NOTHING_TO_DO => {}
                     }
                 }
                 Err(why) => 
@@ -201,7 +234,6 @@ fn main()
         
                     if Path::new(path.as_str()).exists()
                     {
-        
                         match lkr.read(path.as_str())
                         {
                             Ok(_) => {},
@@ -210,12 +242,6 @@ fn main()
                                 println!("{}", why);
                                 exit(1);
                             }
-                        }
-        
-                        match std::fs::copy(path.clone(), format!("{}.bk",path))
-                        {
-                            Ok(_) => {},
-                            Err(why) => {panic!("Error when backing up lkr file {} to {}.bk: {}", path, path, why)}
                         }
                     }
         

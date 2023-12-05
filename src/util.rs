@@ -1,12 +1,17 @@
 use std::path::Path;
 use std::fs::File;
-use std::io::prelude::*;
 use std::fmt::Write as fmtWrite;
 use std::io::Write as ioWrite;
+use std::io::Read;
+use libflate::deflate::{Encoder, Decoder};
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+use base64::{Engine as _, engine::general_purpose};
 
 use regex::Regex;
 
-use crate::error::{NoSuchFileError, ReadFileError};
+use crate::error::{NoSuchFileError, ReadFileError, CompressionError};
 
 pub fn read_file_utf8(path: &str) -> Result<String, ReadFileError>
 {
@@ -131,4 +136,66 @@ pub fn find_file_in_dir(pattern: Regex) -> Result<String, NoSuchFileError>
             Err(NoSuchFileError{why: format!("Error while reading directory: {}", why)})
         }
     }
+}
+
+pub fn compress(bytes: &[u8]) -> Result<Vec<u8>, CompressionError>
+{
+    let mut encoder = Encoder::new(Vec::new());
+    
+    match encoder.write_all(&bytes)
+    {
+        Ok(_) => (),
+        Err(e) => 
+        {
+            return Err(CompressionError { why: format!("Error writing to compressor: {}", e) })
+        }
+    };
+
+    match encoder.finish().into_result()
+    {
+        Ok(data) => Ok(data), 
+        Err(e) => 
+        {
+            Err(CompressionError { why: format!("Error finalising compressor: {}", e) })
+        }
+    }
+}
+
+pub fn decompress(bytes: Vec<u8>) -> Result<String, CompressionError>
+{
+    let mut decoder = Decoder::new(&bytes[..]);
+    let mut decoded_data = Vec::new();
+
+    match decoder.read_to_end(&mut decoded_data)
+    {
+        Ok(_) => (),
+        Err(e) => 
+        {
+            return Err(CompressionError { why: format!("Error decoding data: {}", e) })
+        }
+    }
+    
+    match std::str::from_utf8(&decoded_data)
+    {
+        Ok(s) => Ok(s.to_string()),
+        Err(e) => 
+        {
+            Err(CompressionError { why: format!("Decoded data is not utf8: {}", e) })
+        }
+    }
+}
+
+// https://gist.github.com/silmeth/62a92e155d72bb9c5f19c8cdf4c8993e, updated
+
+pub fn as_base64<T: AsRef<[u8]>, S: Serializer>(val: &T, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&general_purpose::STANDARD_NO_PAD.encode(val))
+}
+
+pub fn from_base64<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
+    use serde::de;
+
+    <&str>::deserialize(deserializer).and_then(|s| {
+        general_purpose::STANDARD_NO_PAD.decode(s)
+            .map_err(|e| de::Error::custom(format!("invalid base64 string: {}, {}", s, e)))
+    })
 }
