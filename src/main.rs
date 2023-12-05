@@ -234,7 +234,6 @@ fn main()
         
                     if Path::new(path.as_str()).exists()
                     {
-        
                         match lkr.read(path.as_str())
                         {
                             Ok(_) => {},
@@ -243,12 +242,6 @@ fn main()
                                 println!("{}", why);
                                 exit(1);
                             }
-                        }
-        
-                        match std::fs::copy(path.clone(), format!("{}.bk",path))
-                        {
-                            Ok(_) => {},
-                            Err(why) => {panic!("Error when backing up lkr file {} to {}.bk: {}", path, path, why)}
                         }
                     }
         

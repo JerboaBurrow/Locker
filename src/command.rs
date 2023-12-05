@@ -1,7 +1,7 @@
 use crate::
 {
     error::{CommandError, CommandResult},
-    file::{Locker, EntryPlainText}, crypto::{generate_key, build_rsa}, arguments::extract_pass, util::write_file
+    file::{Locker, EntryPlainText}, crypto::{generate_key, build_rsa}, arguments::extract_pass, util::{write_file, read_file_utf8}
 };
 
 use std::path::Path;
@@ -261,7 +261,50 @@ fn export(lkr_path: &str, rsa: Rsa<Private>, path: Option<String>) -> Result<Com
 
 fn import(lkr_path: &str, rsa: Rsa<Private>, path: Option<String>) -> Result<CommandResult, CommandError>
 {
-    Ok(CommandResult::OK)
+    let in_file = match path 
+    {
+        Some(f) => f,
+        None => 
+        {
+            return Err(CommandError { why: format!("no import path given as argument to --import") });
+        }
+    };
+
+    let data_string = match read_file_utf8(&in_file)
+    {
+        Ok(d) => d, 
+        Err(e) => 
+        {
+            return Err(CommandError { why: format!("Could not read import file {}: {}", in_file, e) });
+        }
+    };
+
+    let data: Vec<EntryPlainText> = match serde_json::from_str(&data_string)
+    {
+        Ok(d) => d,
+        Err(e) => {return Err(CommandError { why: format!("Could not parse import file {}: {}", in_file, e) });}
+    };
+
+
+    let mut lkr = Locker::new();
+
+    match Path::new(lkr_path).exists()
+    {
+        true => {lkr.read(lkr_path).unwrap();},
+        false => ()
+    }
+
+    for entry in data 
+    {
+        lkr.insert(&entry.key, &entry.value, rsa.clone(), false).unwrap();
+    }
+
+    match lkr.write(lkr_path)
+    {
+        Ok(_) => Ok(CommandResult::OK),
+        Err(e) => {return Err(CommandError { why:format!("{}", e) });}
+    }
+
 }
 
 fn re_key(lkr_path: &str, old_rsa: Rsa<Private>, path: Option<String>, pass: Option<String>) -> Result<CommandResult, CommandError>
@@ -280,13 +323,7 @@ fn re_key(lkr_path: &str, old_rsa: Rsa<Private>, path: Option<String>, pass: Opt
     {
         return Err(CommandError { why: format!("Locker file {}, does not exit", lkr_path) });
     }
-
-    match std::fs::copy(lkr_path, format!("{}.bk",lkr_path))
-    {
-        Ok(_) => {},
-        Err(why) => {return Err(CommandError{ why: format!("Error when backing up lkr file {} to {}.bk: {}", lkr_path, lkr_path, why)})}
-    }
-
+    
     match old_lkr.read(lkr_path)
     {
         Ok(_) => (),

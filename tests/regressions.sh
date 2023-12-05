@@ -56,7 +56,7 @@ do
         echo -e "\n${GREEN}PASSED${NC}"
     fi
 
-    for f in reg.* *.pem *.lkr; do 
+    for f in reg.* *.pem *.lkr exported data; do 
       if [ -f $f ]; then
         rm $f
       fi
