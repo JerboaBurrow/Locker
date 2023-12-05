@@ -56,6 +56,8 @@ Locker general usage:
 
     -o               overwrite a key
 
+    -d               delete a key
+
     --f lkr          path to .lkr file
 
     -show_keys       print all keys in .lkr file
@@ -95,6 +97,7 @@ fn main()
 {
     let mut args: Vec<String> = std::env::args().collect();
     let mut overwrite = false;
+    let mut delete = false;
 
     if args.iter().any(|x| x == "-h")
     {
@@ -113,6 +116,13 @@ fn main()
         let index = args.iter().position(|arg| arg == "-o").unwrap();
         args.remove(index);
         overwrite = true;
+    }
+
+    if args.iter().any(|arg| arg == "-d")
+    {
+        let index = args.iter().position(|arg| arg == "-d").unwrap();
+        args.remove(index);
+        delete = true;
     }
 
     let mut lkr: Locker = Locker::new();
@@ -244,37 +254,56 @@ fn main()
                 }
             };
 
-            match lkr_data 
+            if delete
             {
-                None => 
+                if !Path::new(path.as_str()).exists()
                 {
-                    if !Path::new(path.as_str()).exists()
+                    println!("Locker file {}, does not exit", path);
+                    exit(0);
+                }
+    
+                match lkr.read(path.as_str())
+                {
+                    Ok(_) => {},
+                    Err(why) => 
                     {
-                        println!("Locker file {}, does not exit", path);
-                        exit(0);
+                        println!("{}", why);
+                        exit(1);
                     }
-        
-                    match lkr.read(path.as_str())
+                }
+
+                match lkr.delete(&entry, rsa)
+                {
+                    Ok(_) => (),
+                    Err(e) => 
                     {
-                        Ok(_) => {},
-                        Err(why) => 
+                        println!("Not key to delete: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+
+                match lkr.write(path.as_str())
+                {
+                    Ok(_) => {},
+                    Err(why) => 
+                    {
+                        println!("{}", why);
+                        exit(1);
+                    }
+                }
+            }
+            else
+            {
+                match lkr_data 
+                {
+                    None => 
+                    {
+                        if !Path::new(path.as_str()).exists()
                         {
-                            println!("{}", why);
-                            exit(1);
+                            println!("Locker file {}, does not exit", path);
+                            exit(0);
                         }
-                    }
-        
-                    match lkr.get(entry.as_str(),rsa)
-                    {
-                        Ok(value) => {println!("retrieved: {}", value);},
-                        Err(why) => {println!("Key does not exist: {}", why); exit(0)}
-                    }
-                },
-                Some(data) => 
-                {
-        
-                    if Path::new(path.as_str()).exists()
-                    {
+            
                         match lkr.read(path.as_str())
                         {
                             Ok(_) => {},
@@ -284,21 +313,43 @@ fn main()
                                 exit(1);
                             }
                         }
-                    }
-        
-                    match lkr.insert(entry.as_str(),&data,rsa, overwrite)
-                    {
-                        Ok(_) => {},
-                        Err(why) => {println!("Key already exists {}", why); exit(0)}
-                    }
-                    
-                    match lkr.write(path.as_str())
-                    {
-                        Ok(_) => {},
-                        Err(why) => 
+            
+                        match lkr.get(entry.as_str(),rsa)
                         {
-                            println!("{}", why);
-                            exit(1);
+                            Ok(value) => {println!("retrieved: {}", value);},
+                            Err(why) => {println!("Key does not exist: {}", why); exit(0)}
+                        }
+                    },
+                    Some(data) => 
+                    {
+            
+                        if Path::new(path.as_str()).exists()
+                        {
+                            match lkr.read(path.as_str())
+                            {
+                                Ok(_) => {},
+                                Err(why) => 
+                                {
+                                    println!("{}", why);
+                                    exit(1);
+                                }
+                            }
+                        }
+            
+                        match lkr.insert(entry.as_str(),&data,rsa, overwrite)
+                        {
+                            Ok(_) => {},
+                            Err(why) => {println!("Key already exists {}", why); exit(0)}
+                        }
+                        
+                        match lkr.write(path.as_str())
+                        {
+                            Ok(_) => {},
+                            Err(why) => 
+                            {
+                                println!("{}", why);
+                                exit(1);
+                            }
                         }
                     }
                 }
